@@ -1,0 +1,22 @@
+# the backend's settings and keys (copied from flexible-graphrag.env.sample)
+flexible-graphrag.env
+
+# Nuxeo add-on bundles, built by scripts/build-kg-spaces-nuxeo.sh
+nuxeo/addons/*.jar
+
+# Flexible GraphRAG's own files, copied from a release by scripts/sync-flexible-graphrag.sh (run it after cloning):
+# its docker/ folder, schemas/ and flows/. Two files in docker/ are this deployment's own and are kept in git:
+# docker-compose.kg-spaces.yaml (the database menu) and .env (the databases' addresses here). Your Ontotext GraphDB license
+# (docker/ontotext-graphdb/GRAPHDB.license) stays out of git with the rest of docker/.
+flexible-graphrag/docker/*
+!flexible-graphrag/docker/docker-compose.kg-spaces.yaml
+!flexible-graphrag/docker/.env
+flexible-graphrag/schemas/
+flexible-graphrag/flows/
+
+# editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

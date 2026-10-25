@@ -1,0 +1,35 @@
+# KG Spaces for Nuxeo: the app that Nuxeo Web UI's "Add to KG Spaces" and "Ask KG Spaces about this document /
+# folder" open, built from its repository. Included by compose.yaml; not a stack by itself.
+#
+# The actions open the app through the deployment's proxy, http://localhost:8080/kg-spaces-nuxeo/ (Nuxeo's
+# kgspaces.url, set from KG_SPACES_NUXEO_URL in compose.nuxeo.yaml), from Web UI on the proxy
+# (http://localhost:8080/nuxeo/ui/) or on Nuxeo's own port (http://localhost:8081/nuxeo/ui/): the browser sends the
+# Nuxeo session cookie to any port of the same host, so there is no second sign-in. Opened on its own port
+# (http://localhost:4290/) the app works too, with Nuxeo used on that port.
+#
+# The Web UI actions themselves are an add-on jar in Nuxeo: scripts/build-kg-spaces-nuxeo.sh puts it in
+# nuxeo/addons/, and compose.nuxeo.yaml installs it at Nuxeo's start (nuxeo/init/50-kg-spaces-addons.sh).
+#
+# To build from a local checkout instead of GitHub, set KG_SPACES_NUXEO_CONTEXT (e.g. ../kg-spaces-nuxeo).
+
+services:
+
+  kg-spaces-nuxeo:
+    build:
+      context: ${KG_SPACES_NUXEO_CONTEXT:-https://github.com/stevereiner/kg-spaces-nuxeo.git#${KG_SPACES_NUXEO_GIT_REF:-main}}
+      dockerfile: docker/Dockerfile
+    image: ${KG_SPACES_NUXEO_IMAGE:-kg-spaces/kg-spaces-nuxeo:${KG_SPACES_NUXEO_GIT_REF:-main}}
+    restart: unless-stopped
+    environment:
+      # for the app's own port: where its nginx sends /nuxeo/ and /api/
+      NUXEO_URL: http://nuxeo:8080
+      FLEXIBLE_GRAPHRAG_URL: ${FG_BACKEND_URL:-http://flexible-graphrag-backend:8000}   # as the proxy's /api
+      # where the backend reaches Nuxeo (server to server): the backend's NUXEO_URL (flexible-graphrag/app-stack.override.yaml)
+      KG_SPACES_NUXEO_BACKEND_URL: ${FG_NUXEO_URL:-http://nuxeo:8080/nuxeo}
+    extra_hosts:   # a backend on the host (FG_BACKEND_URL=http://host.docker.internal:8000)
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${KG_SPACES_NUXEO_PORT:-4290}:8080"
+    depends_on:
+      nuxeo:
+        condition: service_healthy

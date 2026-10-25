@@ -1,0 +1,93 @@
+# Flexible GraphRAG - Main Docker Compose
+#
+# The primary compose file for the whole stack, used two ways:
+#   - databases in Docker while the backend and UIs run from source (development), or
+#   - everything in Docker, app included, by enabling app-stack.yaml + proxy.yaml below.
+# Pick your services by commenting include lines in or out.
+
+# IMPORTANT: Before starting, ensure Docker has adequate memory allocated.
+# The full stack requires 16GB+ in the Docker VM; with vLLM add ~8GB on top of model VRAM needs.
+# See docs/DOCKER-RESOURCE-CONFIGURATION.md for platform-specific setup:
+#   Windows:              create C:\Users\<you>\.wslconfig with memory= (see doc for sizing guide)
+#   macOS:                Docker Desktop -> Settings -> Resources -> Memory
+#   Linux Docker Desktop: Docker Desktop -> Settings -> Resources -> Memory
+#   Linux Docker Engine:  native, no VM limits - see doc for cgroup, swap, vm.max_map_count, NVIDIA toolkit
+
+# ENVIRONMENT FILES - both git-ignored, both created during setup:
+#   flexible-graphrag/.env   the app's own configuration (LLM keys, DB configs, feature flags)
+#   docker/.env              Docker address overrides, AND the file Compose reads for the ${...}
+#                            placeholders in the includes below (ALFRESCO_SEARCH_HOST, VLLM_MODEL,
+#                            FLEXIBLE_GRAPHRAG_VERSION). Compose auto-loads any `.env` sitting next
+#                            to this file, which is why the includes need no extra syntax.
+#                            Copy it from docker-env-sample.txt.
+# Precedence, the full variable list, and why flexible-graphrag/.env is NOT consulted for ${...}:
+#   docker/DOCKER-ENV-SETUP.md
+# Edits apply on `docker compose up --force-recreate`; a running container keeps its values.
+
+# Docker Compose v2 doesn't require version field
+
+# Include or comment out (if have externally or don't need) services
+# (kg-spaces-deployment: this deployment's database menu, Flexible GraphRAG's docker-compose.yaml under its own name
+#  so scripts/sync-flexible-graphrag.sh never overwrites it; after a sync, compare it with the release's
+#  docker-compose.yaml next to it. Keep app-stack.yaml, proxy.yaml, langflow.yaml and alfresco*.yaml commented, see
+#  compose.flexible-graphrag.yaml)
+include:
+   # Property graph databases
+   # LlamaIndex + LangChain supported
+   - includes/neo4j.yaml          # Neo4j graph database
+   #- includes/ladybug-explorer.yaml # Ladybug Explorer web interface (port 7003)
+   #- includes/falkordb.yaml        # FalkorDB graph database with browser (ports 6379, 3001)
+   - includes/arcadedb.yaml         # ArcadeDB multi-model database (ports 2480, 2424)
+   #- includes/memgraph.yaml        # MemGraph graph database
+   #- includes/nebula.yaml          # NebulaGraph distributed graph database
+   #- includes/neptune.yaml         # Amazon Neptune graph database
+   # LangChain-only 
+   #- includes/arangodb.yaml        # ArangoDB (port 8529)
+   #- includes/apache-age.yaml      # Apache AGE (PG18) + pgvector — graph+vector DB (port 5434)
+   #- includes/hugegraph.yaml       # HugeGraph server + Hubble UI (ports 8082, 8085)
+   #- includes/surrealdb.yaml       # SurrealDB (port 8010)
+   #- includes/gremlin-server.yaml  # TinkerPop Gremlin Server (port 8182; Cosmos Gremlin substitute)
+   #- includes/tigergraph.yaml     # TigerGraph analytics graph database (ports 9002, 14240)
+   # Vector databases
+   - includes/qdrant.yaml          # Commented - using existing external container
+   #- includes/chroma.yaml          # Chroma vector database
+   #- includes/milvus.yaml          # Milvus vector database with Attu dashboard
+   #- includes/weaviate.yaml        # Weaviate vector database
+   #- includes/pinecone.yaml        # Pinecone managed vector database
+   - includes/postgres-pgvector.yaml  # PostgreSQL + pgvector: inc sync state + standalone vector DB (port 5433)
+   #- includes/lancedb.yaml         # LanceDB embedded vector database  
+   # Search databases
+   - includes/elasticsearch-dev.yaml  # Elasticsearch with security disabled
+   - includes/kibana-simple.yaml      # Kibana working configuration
+   #- includes/opensearch.yaml      # Commented - using elasticsearch instead
+   #- includes/opensearch-dashboards.yaml # OpenSearch web UI (5602); needs the include above
+   # Alfresco repository
+   #- includes/alfresco.yaml        # Alfresco content management system (26.2 indexes into Elasticsearch/OpenSearch, not Solr)
+   # Alfresco's search engine (26.2 dropped Solr). Enable ONE of the two, or NEITHER and set
+   # ALFRESCO_SEARCH_HOST=elasticsearch (or =opensearch) in docker/.env to share the engine
+   # and dashboard already configured above. See the table in includes/alfresco.yaml.
+   #- includes/alfresco-elasticsearch.yaml  # Elasticsearch for Alfresco (9202) - the default
+   #- includes/alfresco-kibana.yaml         # optional dashboard over it (5603)
+   #- includes/alfresco-opensearch.yaml     # OpenSearch for Alfresco (9203) - also set ALFRESCO_SEARCH_HOST=alfresco-opensearch
+   #- includes/alfresco-opensearch-dashboards.yaml # optional dashboard over it (5604)
+   #- includes/keycloak.yaml        # Keycloak OIDC IdP for Alfresco OAuth2 (identity-service subsystem, port 8091)
+   # Observability
+   #- includes/observability.yaml   # OpenTelemetry observability stack (Jaeger, Prometheus, Grafana)
+   # commented out app-stack.yaml and proxy.yaml currently using external/standalone flexible-graphrag 
+   # backend and ui clients, but using databases in docker
+   # kg-spaces-deployment: keep these three commented. compose.flexible-graphrag.yaml includes app-stack.yaml and
+   # langflow.yaml itself (with flexible-graphrag/*.override.yaml; Langflow under the "langflow" profile), and the
+   # deployment has its own proxy (compose.proxy.yaml)
+   #- includes/app-stack.yaml       # backend and ui clients
+   #- includes/proxy.yaml           # proxy for backend and ui clients
+   #- includes/langflow.yaml        # Langflow server for flow mode (opt-in; see the file for the backend-side config it needs)
+   # RDF graph databases
+   #- includes/jena-fuseki.yaml      # Jena Fuseki server
+   - includes/ontotext-graphdb.yaml    # Ontotext GraphDB server
+   #- includes/oxigraph.yaml   # Oxigraph server
+   # vLLM  LLM provider
+   #- includes/vllm.yaml            # vLLM inference server (OpenAI-compatible, port "8002:8000) - requires NVIDIA GPU
+
+# Volumes are defined in individual include files
+
+# Services will use the default network (flexible-graphrag_default)

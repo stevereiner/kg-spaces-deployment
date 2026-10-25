@@ -1,0 +1,24 @@
+# This deployment's settings on top of Flexible GraphRAG's docker/includes/langflow.yaml (merged by
+# compose.flexible-graphrag.yaml; paths are relative to the deployment folder): the published image, the backend's
+# env files, and only when asked for: langflow in COMPOSE_PROFILES in .env, or
+#   docker compose -p kg-spaces --profile langflow up -d
+# then ENABLE_LANGFLOW_FLOWS=true in flexible-graphrag.env (LANGFLOW_URL is already the service, app-stack.yaml).
+
+services:
+
+  flexible-graphrag-langflow:
+    profiles: ["langflow"]
+    build: !reset null
+    image: ${FLEXIBLE_GRAPHRAG_LANGFLOW_IMAGE:-integratedsemantics/flexible-graphrag-langflow:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    container_name: !reset null
+    ports: !override
+      - "${LANGFLOW_PORT:-7860}:7860"
+    env_file: !override
+      - path: ${FLEXIBLE_GRAPHRAG_ENV_FILE:-./flexible-graphrag.env}
+        required: true
+      - path: ./flexible-graphrag/docker/.env
+        required: true
+    volumes: !override
+      - ./flexible-graphrag/schemas:/app/schemas:ro
+      - langflow_data:/app/langflow-data
+      - upload_data:/app/uploads

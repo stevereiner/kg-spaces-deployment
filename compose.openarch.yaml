@@ -1,0 +1,173 @@
+# OpenArch, stock (openarch-all-mongodb): the repositories, key/value store, scheduler and configuration in MongoDB
+# (a one-member replica set, so OpenArch gets MongoDB transactions, as in Hyland's own docker-compose.yml); search,
+# fulltext and embeddings (kNN) in OpenSearch. Included by compose.yaml; not a stack by itself.
+#
+# Image: Hyland's published ghcr.io/hyland/openarch-app-jvm at OPENARCH_VERSION, or one built from source at any
+# commit with scripts/build-openarch.sh (then OPENARCH_IMAGE in .env).
+#
+# Repositories on a graph database instead of MongoDB (openarch-graph-storage; not the default): OPENARCH_IMAGE of
+# scripts/build-openarch-graph-storage.sh, OPENARCH_GRAPH_BACKEND (neo4j or arcadedb) and that database's profile in
+# COMPOSE_PROFILES (openarch-graph-neo4j or openarch-graph-arcadedb), each with its own database service here. MongoDB
+# and OpenSearch stay (key/value store, scheduler, configuration documents; search). Pick it before the first start:
+# the repositories are new ones, and the search index would mix both.
+
+services:
+
+  openarch:
+    image: ${OPENARCH_IMAGE:-ghcr.io/hyland/openarch-app-jvm:${OPENARCH_VERSION:-1.0.44}}
+    restart: unless-stopped
+    # Hyland's image's user: every image (published, from source, graph storage) on the same volume
+    user: "33010:1000"
+    depends_on:
+      openarch-mongodb-init:
+        condition: service_completed_successfully
+      openarch-search:
+        condition: service_healthy
+      openarch-neo4j:           # with OPENARCH_GRAPH_BACKEND=neo4j
+        condition: service_healthy
+        required: false
+      openarch-arcadedb:        # with OPENARCH_GRAPH_BACKEND=arcadedb
+        condition: service_healthy
+        required: false
+    environment:
+      NUXEO_MONGODB_SERVER: openarch-mongodb:27017
+      NUXEO_MONGODB_DBNAME: openarch
+      OPENSEARCH_ADDRESSLIST: http://openarch-search:9200
+      NUXEO_DATA_DIR: /var/lib/openarch/data
+      # openarch-graph-storage only (the other images ignore them): which graph database, and where
+      GRAPH_BACKEND: ${OPENARCH_GRAPH_BACKEND:-arcadedb}
+      JAVA_OPTS: >-
+        -Dnuxeo.neo4j.uri=bolt://openarch-neo4j:7687
+        -Dnuxeo.neo4j.username=neo4j
+        -Dnuxeo.neo4j.password=${OPENARCH_NEO4J_PASSWORD:-password}
+        -Dnuxeo.arcadedb.host=openarch-arcadedb
+        -Dnuxeo.arcadedb.port=2480
+        -Dnuxeo.arcadedb.database=openarch
+        -Dnuxeo.arcadedb.username=root
+        -Dnuxeo.arcadedb.password=${OPENARCH_ARCADEDB_PASSWORD:-playwithdata}
+        -Dnuxeo.mongodb.server=openarch-mongodb:27017
+        -Dnuxeo.mongodb.dbname=openarch
+        -Dopensearch.addressList=http://openarch-search:9200
+        -Dnuxeo.data.dir=/var/lib/openarch/data
+    # relative paths (the runtime's home) land on the volume too
+    working_dir: /var/lib/openarch
+    ports:
+      - "${OPENARCH_PORT:-8088}:8080"
+    volumes:
+      - openarch-data:/var/lib/openarch
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health | grep -q UP || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  openarch-mongodb:
+    image: mongo:${MONGODB_VERSION:-7.0.39}
+    restart: unless-stopped
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "${OPENARCH_MONGODB_PORT:-27017}:27017"
+    volumes:
+      - openarch-mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok' | grep -q 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # One-off: makes openarch-mongodb a one-member replica set (no-op once it is one)
+  openarch-mongodb-init:
+    image: mongo:${MONGODB_VERSION:-7.0.39}
+    restart: "no"
+    depends_on:
+      openarch-mongodb:
+        condition: service_healthy
+    command:
+      - mongosh
+      - --host
+      - openarch-mongodb:27017
+      - --quiet
+      - --eval
+      - >-
+        try { rs.status().ok } catch (e) {
+        rs.initiate({_id: "rs0", members: [{_id: 0, host: "openarch-mongodb:27017"}]}) }
+
+  # OpenArch's repositories in Neo4j (OPENARCH_GRAPH_BACKEND=neo4j; profile openarch-graph-neo4j)
+  openarch-neo4j:
+    image: neo4j:${OPENARCH_NEO4J_VERSION:-2026.09.0}
+    profiles: ["openarch-graph-neo4j"]
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${OPENARCH_NEO4J_PASSWORD:-password}
+    ports:
+      - "${OPENARCH_NEO4J_HTTP_PORT:-7477}:7474"   # Neo4j Browser
+      - "${OPENARCH_NEO4J_BOLT_PORT:-7692}:7687"
+    volumes:
+      - openarch-neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  # OpenArch's repositories in ArcadeDB (OPENARCH_GRAPH_BACKEND=arcadedb; profile openarch-graph-arcadedb)
+  openarch-arcadedb:
+    image: arcadedata/arcadedb:${OPENARCH_ARCADEDB_VERSION:-26.10.1}
+    profiles: ["openarch-graph-arcadedb"]
+    restart: unless-stopped
+    environment:
+      # as in openarch-graph-storage (which creates its databases): transactions of the remote API kept open up to 300 s
+      JAVA_OPTS: >-
+        -Darcadedb.server.rootPassword=${OPENARCH_ARCADEDB_PASSWORD:-playwithdata}
+        -Darcadedb.server.httpSessionExpireTimeout=300
+    ports:
+      - "${OPENARCH_ARCADEDB_HTTP_PORT:-2492}:2480"   # ArcadeDB Studio
+    volumes:
+      - openarch-arcadedb-data:/home/arcadedb/databases
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2480/api/v1/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # security disabled: development only, like OpenArch's own docker-compose.yml
+  openarch-search:
+    image: opensearchproject/opensearch:${OPENSEARCH_VERSION:-2.19.6}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      cluster.routing.allocation.disk.threshold_enabled: "false"
+      plugins.security.disabled: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${OPENARCH_SEARCH_PORT:-9204}:9200"
+    volumes:
+      - openarch-search-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  openarch-search-dashboards:
+    image: opensearchproject/opensearch-dashboards:${OPENSEARCH_VERSION:-2.19.6}
+    profiles: ["debug"]
+    restart: unless-stopped
+    depends_on:
+      - openarch-search
+    environment:
+      OPENSEARCH_HOSTS: '["http://openarch-search:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
+    ports:
+      - "${OPENARCH_SEARCH_DASHBOARDS_PORT:-5605}:5601"
+
+volumes:
+  openarch-data:
+  openarch-mongodb-data:
+  openarch-search-data:
+  openarch-neo4j-data:
+  openarch-arcadedb-data:

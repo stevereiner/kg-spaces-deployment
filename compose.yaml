@@ -1,0 +1,16 @@
+# KG Spaces deployment: the only entrypoint. Each component is in its own compose file, included here.
+#
+#   docker compose -p kg-spaces up -d --build
+#
+# Settings (versions, commits, ports) are in .env.
+
+name: kg-spaces
+
+include:
+  - compose.openarch.yaml
+  - compose.alfresco.yaml
+  - compose.nuxeo.yaml
+  - compose.flexible-graphrag.yaml
+  - compose.kg-spaces-aca.yaml
+  - compose.kg-spaces-nuxeo.yaml
+  - compose.proxy.yaml

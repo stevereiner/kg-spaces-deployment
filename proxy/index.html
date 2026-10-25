@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>KG Spaces</title>
+  <!-- every link opens in its own tab, so this page stays open as the starting point -->
+  <base target="_blank">
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 64rem; margin: 3rem auto; padding: 0 1rem; color: #222; }
+    h1 { font-size: 1.6rem; }
+    h2 { font-size: 1.1rem; margin-top: 2rem; }
+    li { margin: .35rem 0; }
+    code { background: #f2f2f2; padding: 0 .25rem; }
+    h1 { margin-bottom: .4rem; }
+    .subtitle { margin: .2rem 0; color: #333; font-size: 1.05rem; font-weight: 600; }
+    .subtitle.tagline { font-style: italic; }
+    .nowrap { white-space: nowrap; }
+    @media (max-width: 64rem) { .nowrap { white-space: normal; } }
+  </style>
+</head>
+<body>
+  <h1>KG Spaces</h1>
+  <p class="subtitle nowrap">Knowledge Graphs (KG) + Spaces (Content Repositories + Content Data Sources) = Knowledge / Content / Context Lake</p>
+  <p class="subtitle tagline">Made AI Ready with Hyland OpenArch and Flexible GraphRAG</p>
+
+  <h2>Content Repositories</h2>
+  <ul>
+    <li><a href="/share/">Alfresco Share</a> &middot; <a href="/content-app/">Alfresco Content App</a> &middot; <a href="/alfresco/">Alfresco repository</a> &middot; <a href="/admin/">Alfresco Control Center</a></li>
+    <li><a href="/nuxeo/ui/">Nuxeo Web UI</a></li>
+  </ul>
+
+  <h2>Content Data Sources</h2>
+  <ul>
+    <li>Alfresco, Nuxeo, CMIS, SharePoint, Box, OneDrive, Google Drive</li>
+    <li>Amazon S3, Google Cloud Storage, Azure Blob Storage</li>
+    <li>Web Pages, Wikipedia, YouTube, Filesystem / File Upload</li>
+  </ul>
+
+  <h2>KG Spaces for Alfresco Content App (ACA)</h2>
+  <ul>
+    <li><a data-path="kgSpacesAca" href="/kg-spaces-aca/">KG Spaces ACA</a>: the Alfresco Content App with KG Spaces</li>
+  </ul>
+
+  <h2>KG Spaces for Nuxeo</h2>
+  <ul>
+    <li><a href="/nuxeo/ui/">Nuxeo Web UI</a>: select documents, then <em>Add to KG Spaces</em>, or open one and <em>Ask KG Spaces about this document / folder</em></li>
+    <li><a data-path="kgSpacesNuxeo" href="/kg-spaces-nuxeo/">KG Spaces for Nuxeo</a>: the app those actions open</li>
+  </ul>
+
+  <h2>Flexible GraphRAG</h2>
+  <ul>
+    <li>Flexible GraphRAG UIs: <a data-path="fgReact" href="/fg-react/">React</a> &middot; <a data-path="fgVue" href="/fg-vue/">Vue</a> &middot; <a data-path="fgAngular" href="/fg-angular/">Angular</a></li>
+    <li><a href="https://stevereiner.github.io/flexible-graphrag/">Flexible GraphRAG Documentation</a></li>
+  </ul>
+
+  <h2>Hyland OpenArch</h2>
+  <ul>
+    <li><a href="https://github.com/Hyland/OpenArch">Hyland OpenArch GitHub</a></li>
+    <li><a href="https://www.hyland.com">Hyland Website</a></li>
+  </ul>
+
+  <h2>KG Spaces / Flexible GraphRAG GitHub</h2>
+  <ul>
+    <li><a href="https://github.com/stevereiner/kg-spaces-deployment">KG Spaces Deployment</a></li>
+    <li><a href="https://github.com/stevereiner/kg-spaces-aca">KG Spaces for Alfresco Content App (ACA)</a></li>
+    <li><a href="https://github.com/stevereiner/kg-spaces-nuxeo">KG Spaces for Nuxeo</a></li>
+    <li><a href="https://github.com/stevereiner/flexible-graphrag">Flexible GraphRAG</a></li>
+    <li><a href="https://github.com/stevereiner/python-openarch-api">Python OpenArch API</a>: used by Flexible GraphRAG</li>
+  </ul>
+
+  <script>
+    // the deployment's own paths (KG_SPACES_ACA_PATH, FG_*_PATH in .env), as the proxy serves them
+    fetch("/paths.json").then(r => r.json()).then(paths => {
+      for (const a of document.querySelectorAll("a[data-path]")) {
+        if (paths[a.dataset.path]) a.href = paths[a.dataset.path] + (a.dataset.rest || "");
+      }
+    }).catch(() => {});
+  </script>
+</body>
+</html>

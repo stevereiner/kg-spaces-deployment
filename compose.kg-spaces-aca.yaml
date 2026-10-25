@@ -1,0 +1,42 @@
+# KG Spaces ACA: the Alfresco Content App with the KG Spaces extension, built from its GitHub repository (not
+# published as an image). Included by compose.yaml; not a stack by itself.
+#
+# Open it through the deployment's proxy at http://localhost:8080/kg-spaces-aca/, or on its own port at
+# http://localhost:4280/. The app is built for / (its own port); the proxy serves it under /kg-spaces-aca/ by stripping
+# that prefix (ACA routes with # and loads its files by relative paths: proxy/nginx.conf), and the app's calls to /alfresco/... and
+# /api/... go to the proxy's own routes, all on one origin, so no cross-site (CORS) settings are needed anywhere. On its
+# own port the image's small web server (nginx) forwards /alfresco/... and /api/... itself.
+#
+# To build from a local checkout instead of GitHub, set KG_SPACES_ACA_CONTEXT (e.g. ../kg-spaces-aca); with
+# KG_SPACES_ACA_LIB_SOURCE=local, the library comes from a tarball in that checkout's docker/lib/ (npm run pack:lib in
+# Flexible GraphRAG's flexible-graphrag-ui/frontend-angular) instead of npm.
+
+services:
+
+  kg-spaces-aca:
+    build:
+      context: ${KG_SPACES_ACA_CONTEXT:-https://github.com/stevereiner/kg-spaces-aca.git#${KG_SPACES_ACA_GIT_REF}}
+      dockerfile: docker/Dockerfile
+      args:
+        LIB_SOURCE: ${KG_SPACES_ACA_LIB_SOURCE:-npm}   # npm, or local: the tarball in the context's docker/lib/
+        LIB_VERSION: ${KG_SPACES_ACA_LIB_VERSION:-latest}   # @flexible-graphrag/angular-ui
+    image: ${KG_SPACES_ACA_IMAGE:-kg-spaces/kg-spaces-aca:${KG_SPACES_ACA_GIT_REF}}
+    restart: unless-stopped
+    environment:
+      ALFRESCO_URL: http://alfresco:8080
+      FLEXIBLE_GRAPHRAG_URL: ${FG_BACKEND_URL:-http://flexible-graphrag-backend:8000}   # as the proxy's /api
+      # where the backend reaches Alfresco (server to server), written into app.config.json: through the proxy, like
+      # the backend's ALFRESCO_URL, since a 0.8.x backend also takes ActiveMQ's STOMP host from it
+      KG_SPACES_ALFRESCO_BASE_URL: http://host.docker.internal:${PROXY_PORT:-8080}
+    extra_hosts:   # a backend on the host (FG_BACKEND_URL=http://host.docker.internal:8000)
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${KG_SPACES_ACA_PORT:-4280}:8080"
+    depends_on:
+      alfresco:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

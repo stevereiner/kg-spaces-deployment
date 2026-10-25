@@ -1,0 +1,193 @@
+# One entry point for KG Spaces (compose.proxy.yaml). Paths are passed through unchanged.
+#
+# Upstreams are named through variables and Docker's DNS resolver, so the proxy starts even when a service is not part
+# of the stack (that path then answers 502) and follows containers that are recreated.
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    # uploads to the repositories and the backend
+    client_max_body_size 0;
+    proxy_read_timeout   300s;
+    proxy_send_timeout   300s;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    # the port the browser used (Host header), so that the services build their links with it: Tomcat (Alfresco,
+    # Nuxeo) takes X-Forwarded-Proto without X-Forwarded-Port as the scheme's default port (80)
+    map $http_host $forwarded_port {
+        ~:(?<port>[0-9]+)$ $port;
+        default            80;
+    }
+
+    server {
+        listen 80;
+        server_name _;
+        # redirects keep the host and port the browser used (not nginx's own port 80)
+        absolute_redirect off;
+
+        proxy_http_version 1.1;
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host  $http_host;
+        proxy_set_header X-Forwarded-Port  $forwarded_port;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        $connection_upgrade;
+
+        location = /health {
+            access_log off;
+            default_type text/plain;
+            return 200 "healthy\n";
+        }
+
+        # landing page: links to the UIs and services
+        location = / {
+            root /usr/share/nginx/html;
+            try_files /index.html =404;
+        }
+
+        # Alfresco repository, Share and Control Center: the rules of Alfresco's Traefik labels (Flexible GraphRAG's
+        # docker/includes/commons/base.yaml)
+        location = /alfresco { return 301 /alfresco/; }
+        location = /share    { return 301 /share/; }
+        # the Solr API is not for browsers, directly or through Share's proxy
+        location ~ ^/alfresco/(wc)?s(ervice)?/api/solr/ { return 403; }
+        location ~ ^/share/proxy/alfresco(-(noauth|feed|api))?/api/solr/ { return 403; }
+        # metrics: from this host only
+        location ~ ^/alfresco/(wc)?s(ervice)?/prometheus {
+            allow 127.0.0.1;
+            deny all;
+            set $alfresco http://alfresco:8080;
+            proxy_pass $alfresco;
+        }
+        location /alfresco/ {
+            set $alfresco http://alfresco:8080;
+            proxy_pass $alfresco;
+        }
+        location /share/ {
+            set $share http://share:8080;
+            proxy_pass $share;
+        }
+        # Alfresco Content App (stock ACA), as Flexible GraphRAG's alfresco.yaml serves it
+        location = /content-app { return 301 /content-app/; }
+        location ~ ^/content-app/(.*)$ {
+            set $content_app http://content-app:8080;
+            proxy_pass $content_app/$1$is_args$args;
+        }
+        # KG Spaces ACA, served at / on its own port (4280) and here under KG_SPACES_ACA_PATH (/kg-spaces-aca) with the
+        # prefix stripped. ACA needs nothing else for that: it routes with #, and loads its files and app.config.json by
+        # relative paths (so through this route); its calls to /alfresco and /api use the routes here
+        location = ${KG_SPACES_ACA_PATH} { return 301 ${KG_SPACES_ACA_PATH}/; }
+        location ${KG_SPACES_ACA_PATH}/ {
+            set $kg_spaces_aca http://kg-spaces-aca:8080;
+            rewrite ^${KG_SPACES_ACA_PATH}/(.*)$ /$1 break;
+            proxy_pass $kg_spaces_aca;
+            proxy_redirect / ${KG_SPACES_ACA_PATH}/;
+        }
+
+        # KG Spaces for Nuxeo, served at / on its own port (4290) and here under KG_SPACES_NUXEO_PATH
+        # (/kg-spaces-nuxeo) with the prefix stripped, the same way: hash routing and relative paths. Being on
+        # this origin with /nuxeo/ below, it shares the user's Web UI session
+        location = ${KG_SPACES_NUXEO_PATH} { return 301 ${KG_SPACES_NUXEO_PATH}/; }
+        location ${KG_SPACES_NUXEO_PATH}/ {
+            set $kg_spaces_nuxeo http://kg-spaces-nuxeo:8080;
+            rewrite ^${KG_SPACES_NUXEO_PATH}/(.*)$ /$1 break;
+            proxy_pass $kg_spaces_nuxeo;
+            proxy_redirect / ${KG_SPACES_NUXEO_PATH}/;
+        }
+
+        location ~ ^/(admin|control-center)$ { return 301 /$1/; }
+        location ~ ^/(admin|control-center)/(.*)$ {
+            set $control_center http://control-center:8080;
+            proxy_pass $control_center/$2$is_args$args;
+        }
+
+        # Nuxeo (also on its own port)
+        location /nuxeo/ {
+            set $nuxeo http://nuxeo:8080;
+            proxy_pass $nuxeo;
+        }
+
+        # Flexible GraphRAG UIs: each image serves its app under /ui/<name>/
+        location /ui/angular/ {
+            set $fg_angular http://flexible-graphrag-ui-angular:4200;
+            proxy_pass $fg_angular;
+        }
+        location /ui/react/ {
+            set $fg_react http://flexible-graphrag-ui-react:3000;
+            proxy_pass $fg_react;
+        }
+        location /ui/vue/ {
+            set $fg_vue http://flexible-graphrag-ui-vue:5173;
+            proxy_pass $fg_vue;
+        }
+
+        # Flexible GraphRAG UIs under the deployment's own paths too (FG_REACT_PATH, FG_VUE_PATH, FG_ANGULAR_PATH: by
+        # default /fg-react, /fg-vue, /fg-angular): each maps to its image's /ui/<name>/. The pages keep loading their
+        # files from /ui/<name>/assets (the routes above) and call the backend at /api; none of the UIs routes by path.
+        location = ${FG_REACT_PATH} { return 301 ${FG_REACT_PATH}/; }
+        location ${FG_REACT_PATH}/ {
+            set $fg_react_alias http://flexible-graphrag-ui-react:3000;
+            rewrite ^${FG_REACT_PATH}/(.*)$ /ui/react/$1 break;
+            proxy_pass $fg_react_alias;
+            proxy_redirect /ui/react/ ${FG_REACT_PATH}/;
+        }
+        location = ${FG_VUE_PATH} { return 301 ${FG_VUE_PATH}/; }
+        location ${FG_VUE_PATH}/ {
+            set $fg_vue_alias http://flexible-graphrag-ui-vue:5173;
+            rewrite ^${FG_VUE_PATH}/(.*)$ /ui/vue/$1 break;
+            proxy_pass $fg_vue_alias;
+            proxy_redirect /ui/vue/ ${FG_VUE_PATH}/;
+        }
+        location = ${FG_ANGULAR_PATH} { return 301 ${FG_ANGULAR_PATH}/; }
+        location ${FG_ANGULAR_PATH}/ {
+            set $fg_angular_alias http://flexible-graphrag-ui-angular:4200;
+            rewrite ^${FG_ANGULAR_PATH}/(.*)$ /ui/angular/$1 break;
+            proxy_pass $fg_angular_alias;
+            proxy_redirect /ui/angular/ ${FG_ANGULAR_PATH}/;
+        }
+
+        # the backend under FG_API_PATH (default /fg-api) as well as /api
+        location ${FG_API_PATH}/ {
+            set $backend_alias ${FG_BACKEND_URL};
+            rewrite ^${FG_API_PATH}/(.*)$ /api/$1 break;
+            proxy_pass $backend_alias;
+            proxy_buffering off;   # streamed answers
+        }
+
+        # the backend's API docs (FastAPI serves them at /docs, outside /api) and the spec they load
+        location = ${FG_API_PATH}/docs {
+            set $backend_docs ${FG_BACKEND_URL};
+            rewrite ^ /docs break;
+            proxy_pass $backend_docs;
+        }
+        location = /openapi.json {
+            set $backend_spec ${FG_BACKEND_URL};
+            proxy_pass $backend_spec;
+        }
+
+        # the paths above, for the landing page's links
+        location = /paths.json {
+            default_type application/json;
+            return 200 '{"kgSpacesAca": "${KG_SPACES_ACA_PATH}/", "kgSpacesNuxeo": "${KG_SPACES_NUXEO_PATH}/", "fgReact": "${FG_REACT_PATH}/", "fgVue": "${FG_VUE_PATH}/", "fgAngular": "${FG_ANGULAR_PATH}/", "fgApi": "${FG_API_PATH}/"}';
+        }
+
+        # Flexible GraphRAG backend
+        location /api/ {
+            set $backend ${FG_BACKEND_URL};
+            proxy_pass $backend;
+            proxy_buffering off;   # streamed answers
+        }
+    }
+}

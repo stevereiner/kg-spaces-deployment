@@ -1,0 +1,205 @@
+# Nuxeo LTS 2025 with the Web UI, built from public source by nuxeo-graph-storage's Dockerfile (no custom content
+# model or facet), with its PostgreSQL, its OpenSearch 1.3 (Nuxeo's tested target; not OpenArch's 2.19) and Kafka
+# (audit events, which Flexible GraphRAG's auto sync reads). Included by compose.yaml; not a stack by itself.
+#
+# Despite its name, the nuxeo-graph-storage build below gives stock Nuxeo with its documents in PostgreSQL by default
+# (NUXEO_TEMPLATES=postgresql,...): its Dockerfile is just a convenient way to build Nuxeo and the Web UI from source.
+# Graph storage is used only when NUXEO_TEMPLATES names graph-neo4j or graph-arcadedb (below).
+#
+# Repository storage, NUXEO_TEMPLATES in .env: postgresql (the default: stock Nuxeo, documents in PostgreSQL), or a
+# graph database with nuxeo-graph-storage (the same image): graph-neo4j or graph-arcadedb, each with its own database
+# service here, started by its profile (COMPOSE_PROFILES in .env): nuxeo-graph-neo4j or nuxeo-graph-arcadedb. Pick it
+# before the first start: the repository is a new one, and the search index and audit would mix both.
+#
+# The image builds Nuxeo and the Web UI from source: long (an hour or more). NUXEO_IMAGE can name an image already
+# built instead (e.g. nuxeo-graph-storage:local from a nuxeo-graph-storage checkout); then start without --build.
+
+services:
+
+  nuxeo:
+    build:
+      context: https://github.com/stevereiner/nuxeo-graph-storage.git#${NUXEO_GRAPH_STORAGE_GIT_REF}
+      dockerfile: docker/Dockerfile
+      args:
+        NUXEO_GIT_REF: ${NUXEO_GIT_REF}
+        NUXEO_WEBUI_GIT_REF: ${NUXEO_WEBUI_GIT_REF}
+        BUILD_THREADS: ${BUILD_THREADS:-6}
+        LIBREOFFICE_VERSION: ${LIBREOFFICE_VERSION:-7.5.9.2}
+    image: ${NUXEO_IMAGE:-kg-spaces/nuxeo:${NUXEO_GRAPH_STORAGE_GIT_REF}}
+    restart: unless-stopped
+    depends_on:
+      nuxeo-db:
+        condition: service_healthy
+      nuxeo-search:
+        condition: service_healthy
+      nuxeo-kafka:
+        condition: service_healthy
+      nuxeo-neo4j:              # with NUXEO_TEMPLATES=graph-neo4j,...
+        condition: service_healthy
+        required: false
+      nuxeo-arcadedb:           # with NUXEO_TEMPLATES=graph-arcadedb,...
+        condition: service_healthy
+        required: false
+    environment:
+      NUXEO_TEMPLATES: ${NUXEO_TEMPLATES:-postgresql,sql-audit,opensearch1-search-client}
+      # the graph database of the graph-neo4j / graph-arcadedb templates (unused by postgresql)
+      NEO4J_URI: bolt://nuxeo-neo4j:7687
+      NEO4J_USERNAME: neo4j
+      NEO4J_PASSWORD: ${NUXEO_NEO4J_PASSWORD:-password}
+      ARCADEDB_HOST: nuxeo-arcadedb
+      ARCADEDB_DATABASE: nuxeo
+      ARCADEDB_USERNAME: root
+      ARCADEDB_PASSWORD: ${NUXEO_ARCADEDB_PASSWORD:-playwithdata}
+      NUXEO_DB_HOST: nuxeo-db
+      NUXEO_DB_PASSWORD: ${NUXEO_DB_PASSWORD:-nuxeo}
+      OPENSEARCH_URL: http://nuxeo-search:9200
+      KAFKA_ENABLED: "true"
+      KAFKA_BOOTSTRAP_SERVERS: nuxeo-kafka:29092
+      # where Web UI's KG Spaces actions open the app: through the proxy, so they work from Web UI on its own port
+      # too; written into nuxeo.conf (kgspaces.url) by nuxeo/init/50-kg-spaces-addons.sh. KG_SPACES_NUXEO_URL in .env
+      # for another app, e.g. one run with npm start from a kg-spaces-nuxeo checkout
+      KG_SPACES_NUXEO_URL: ${KG_SPACES_NUXEO_URL:-http://${KG_SPACES_HOST:-localhost}:${PROXY_PORT:-8080}${KG_SPACES_NUXEO_PATH:-/kg-spaces-nuxeo}/}
+    ports:
+      - "${NUXEO_PORT:-8081}:8080"
+    volumes:
+      - nuxeo-data:/var/lib/nuxeo
+      - nuxeo-logs:/var/log/nuxeo
+      # this deployment's add-on bundles (nuxeo/addons/*.jar, e.g. the KG Spaces for Nuxeo actions from
+      # scripts/build-kg-spaces-nuxeo.sh), installed at every start by the init script; none = nothing installed
+      - ./nuxeo/addons:/opt/kg-spaces/addons:ro
+      - ./nuxeo/init/50-kg-spaces-addons.sh:/docker-entrypoint-initnuxeo.d/50-kg-spaces-addons.sh:ro
+      # its startup waits for PostgreSQL / OpenSearch / Kafka, e.g. when Docker Desktop restarts everything at once
+      - ./nuxeo/init/10-backing-check-retry.sh:/docker-entrypoint-initnuxeo.d/10-backing-check-retry.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/nuxeo/runningstatus || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
+
+  # stock Nuxeo: the documents; also users and groups, directories, audit, key/value store
+  nuxeo-db:
+    image: postgres:${NUXEO_POSTGRES_VERSION:-16-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nuxeo
+      POSTGRES_USER: nuxeo
+      POSTGRES_PASSWORD: ${NUXEO_DB_PASSWORD:-nuxeo}
+    volumes:
+      - nuxeo-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuxeo -d nuxeo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # search and fulltext; single node, no security (development only)
+  nuxeo-search:
+    image: opensearchproject/opensearch:${NUXEO_OPENSEARCH_VERSION:-1.3.20}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "${NUXEO_SEARCH_PORT:-9205}:9200"
+    volumes:
+      - nuxeo-search-data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' || exit 1"]
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  # Kafka, single broker in KRaft mode: Nuxeo's streams, and its audit events for change sync
+  nuxeo-kafka:
+    image: apache/kafka:${KAFKA_VERSION:-3.9.2}
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      # PLAINTEXT for the containers, PLAINTEXT_HOST for a consumer on the host (a backend run outside Docker)
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:29093,PLAINTEXT_HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://nuxeo-kafka:29092,PLAINTEXT_HOST://${KG_SPACES_HOST:-localhost}:${NUXEO_KAFKA_PORT:-9092}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "${NUXEO_KAFKA_PORT:-9092}:9092"
+    volumes:
+      - nuxeo-kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list > /dev/null || exit 1"]
+      interval: 10s
+      timeout: 20s
+      retries: 30
+
+  # Nuxeo's documents in Neo4j (NUXEO_TEMPLATES=graph-neo4j,...; profile nuxeo-graph-neo4j)
+  nuxeo-neo4j:
+    image: neo4j:${NUXEO_NEO4J_VERSION:-2026.09.0}
+    profiles: ["nuxeo-graph-neo4j"]
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NUXEO_NEO4J_PASSWORD:-password}
+    ports:
+      - "${NUXEO_NEO4J_HTTP_PORT:-7476}:7474"   # Neo4j Browser
+      - "${NUXEO_NEO4J_BOLT_PORT:-7691}:7687"
+    volumes:
+      - nuxeo-neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p \"$${NEO4J_AUTH#neo4j/}\" 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  # Nuxeo's documents in ArcadeDB (NUXEO_TEMPLATES=graph-arcadedb,...; profile nuxeo-graph-arcadedb)
+  nuxeo-arcadedb:
+    image: arcadedata/arcadedb:${NUXEO_ARCADEDB_VERSION:-26.10.1}
+    profiles: ["nuxeo-graph-arcadedb"]
+    restart: unless-stopped
+    environment:
+      # as in nuxeo-graph-storage: the nuxeo database created on start (the backend expects it), and transactions of the
+      # remote API kept open up to 300 s
+      JAVA_OPTS: >-
+        -Darcadedb.server.rootPassword=${NUXEO_ARCADEDB_PASSWORD:-playwithdata}
+        -Darcadedb.server.defaultDatabases=nuxeo[root]
+        -Darcadedb.server.httpSessionExpireTimeout=300
+    ports:
+      - "${NUXEO_ARCADEDB_HTTP_PORT:-2491}:2480"   # ArcadeDB Studio
+    volumes:
+      - nuxeo-arcadedb-data:/home/arcadedb/databases
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2480/api/v1/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  nuxeo-kafka-ui:
+    image: kafbat/kafka-ui:${KAFKA_UI_VERSION:-v1.5.0}
+    profiles: ["debug"]
+    restart: unless-stopped
+    depends_on:
+      - nuxeo-kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: nuxeo
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nuxeo-kafka:29092
+    ports:
+      - "${NUXEO_KAFKA_UI_PORT:-8092}:8080"
+
+volumes:
+  nuxeo-data:
+  nuxeo-logs:
+  nuxeo-db-data:
+  nuxeo-search-data:
+  nuxeo-kafka-data:
+  nuxeo-neo4j-data:
+  nuxeo-arcadedb-data:

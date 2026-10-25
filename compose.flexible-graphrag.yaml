@@ -1,0 +1,33 @@
+# Flexible GraphRAG: its databases and its app, from its own release files (flexible-graphrag/docker, refreshed by
+# scripts/sync-flexible-graphrag.sh) with this deployment's settings layered on top. Included by compose.yaml; not a
+# stack by itself.
+#
+# Databases: flexible-graphrag/docker/docker-compose.kg-spaces.yaml is this deployment's copy of Flexible GraphRAG's
+# docker-compose.yaml, its menu of property graph, RDF graph, vector and search databases (and vLLM, observability),
+# under its own name so a sync never overwrites it. Comment its include lines in or out exactly as in a Flexible
+# GraphRAG checkout, then pick them in flexible-graphrag.env (PG_GRAPH_DB, RDF_GRAPH_DB, VECTOR_DB, SEARCH_DB). Their
+# addresses inside this deployment are in flexible-graphrag/docker/.env. Leave its app-stack.yaml, proxy.yaml,
+# langflow.yaml and alfresco*.yaml lines commented: the app and Langflow are included below, and this deployment has
+# its own proxy and Alfresco.
+#
+# App: flexible-graphrag/docker/includes/app-stack.yaml (backend, Angular, React, Vue) with
+# flexible-graphrag/app-stack.override.yaml on top: published images instead of builds from a checkout, the
+# deployment's env files, ports and addresses. Langflow (flow mode) likewise, under the "langflow" profile.
+#
+# OpenArch's OpenSearch is OpenArch's (and Alfresco's): Flexible GraphRAG keeps its own search and vector indexes in
+# its own databases. To keep them in OpenArch instead, set ENABLE_OPENARCH=true (from 0.9.0).
+
+include:
+  - flexible-graphrag/docker/docker-compose.kg-spaces.yaml
+
+  # project_directory: paths in the override files are relative to this deployment, and ${...} come from its .env
+  - path:
+      - flexible-graphrag/docker/includes/app-stack.yaml
+      - flexible-graphrag/app-stack.override.yaml
+    project_directory: .
+
+  # Langflow: only with the "langflow" profile (COMPOSE_PROFILES in .env)
+  - path:
+      - flexible-graphrag/docker/includes/langflow.yaml
+      - flexible-graphrag/langflow.override.yaml
+    project_directory: .
