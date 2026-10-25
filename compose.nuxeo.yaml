@@ -13,10 +13,14 @@
 #
 # The image builds Nuxeo and the Web UI from source: long (an hour or more). NUXEO_IMAGE can name an image already
 # built instead (e.g. nuxeo-graph-storage:local from a nuxeo-graph-storage checkout); then start without --build.
+#
+# Runs with the nuxeo profile (COMPOSE_PROFILES in .env); without it, a Nuxeo outside this deployment can be used
+# (NUXEO_SERVER_URL).
 
 services:
 
   nuxeo:
+    profiles: ["nuxeo"]   # in this deployment (COMPOSE_PROFILES)
     build:
       context: https://github.com/stevereiner/nuxeo-graph-storage.git#${NUXEO_GRAPH_STORAGE_GIT_REF}
       dockerfile: docker/Dockerfile
@@ -79,6 +83,7 @@ services:
 
   # stock Nuxeo: the documents; also users and groups, directories, audit, key/value store
   nuxeo-db:
+    profiles: ["nuxeo"]   # in this deployment (COMPOSE_PROFILES)
     image: postgres:${NUXEO_POSTGRES_VERSION:-16-alpine}
     restart: unless-stopped
     environment:
@@ -95,6 +100,7 @@ services:
 
   # search and fulltext; single node, no security (development only)
   nuxeo-search:
+    profiles: ["nuxeo"]   # in this deployment (COMPOSE_PROFILES)
     image: opensearchproject/opensearch:${NUXEO_OPENSEARCH_VERSION:-1.3.20}
     restart: unless-stopped
     environment:
@@ -114,6 +120,7 @@ services:
 
   # Kafka, single broker in KRaft mode: Nuxeo's streams, and its audit events for change sync
   nuxeo-kafka:
+    profiles: ["nuxeo"]   # in this deployment (COMPOSE_PROFILES)
     image: apache/kafka:${KAFKA_VERSION:-3.9.2}
     restart: unless-stopped
     environment:
@@ -188,7 +195,9 @@ services:
     profiles: ["debug"]
     restart: unless-stopped
     depends_on:
-      - nuxeo-kafka
+      nuxeo-kafka:              # with the nuxeo profile
+        condition: service_started
+        required: false
     environment:
       KAFKA_CLUSTERS_0_NAME: nuxeo
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: nuxeo-kafka:29092

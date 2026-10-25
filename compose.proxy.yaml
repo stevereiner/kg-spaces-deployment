@@ -20,7 +20,12 @@ services:
       - ./proxy/index.html:/usr/share/nginx/html/index.html:ro
     environment:
       NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx          # the template becomes /etc/nginx/nginx.conf
-      NGINX_ENVSUBST_FILTER: "^(FG_BACKEND_URL|KG_SPACES_ACA_PATH|KG_SPACES_NUXEO_PATH|FG_REACT_PATH|FG_VUE_PATH|FG_ANGULAR_PATH|FG_API_PATH)$$"
+      NGINX_ENVSUBST_FILTER: "^(FG_BACKEND_URL|ALFRESCO_SERVER_URL|NUXEO_SERVER_URL|COMPOSE_PROFILES|KG_SPACES_ACA_PATH|KG_SPACES_NUXEO_PATH|FG_REACT_PATH|FG_VUE_PATH|FG_ANGULAR_PATH|FG_API_PATH)$$"
+      # /alfresco/ and /nuxeo/: this deployment's repositories, or ones outside it
+      ALFRESCO_SERVER_URL: ${ALFRESCO_SERVER_URL:-http://alfresco:8080}
+      NUXEO_SERVER_URL: ${NUXEO_SERVER_URL:-http://nuxeo:8080}
+      # which parts run, for the landing page
+      COMPOSE_PROFILES: ${COMPOSE_PROFILES:-}
       KG_SPACES_ACA_PATH: ${KG_SPACES_ACA_PATH:-/kg-spaces-aca}
       # the Flexible GraphRAG backend behind /api (and FG_API_PATH): the deployment's container, or one running
       # from a checkout on the host (http://host.docker.internal:8000) while developing

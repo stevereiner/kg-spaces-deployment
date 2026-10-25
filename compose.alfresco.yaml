@@ -4,6 +4,8 @@
 #     nginx (compose.proxy.yaml) routes /alfresco, /share, /content-app and /admin (/control-center) with the same rules
 #   - search: Alfresco indexes into OpenArch's OpenSearch by default (ALFRESCO_SEARCH_HOST=openarch-search)
 #   - activemq.xml (STOMP enabled) from this deployment: alfresco/activemq.xml
+#   - runs with the alfresco profile (COMPOSE_PROFILES in .env); without it, an Alfresco outside this deployment can
+#     be used (ALFRESCO_SERVER_URL)
 # Its original header follows.
 #
 # This Docker Compose file will spin up an ACS community installation on a local host.
@@ -71,6 +73,7 @@
 # initial full reindex into the new search index on first start.
 services:
   alfresco:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: docker.io/alfresco/alfresco-content-repository-community:26.2.0
     mem_limit: 1900m
     environment:
@@ -131,6 +134,7 @@ services:
       # Reach the host-published Keycloak (:8091) for the identity-service OIDC issuer
       - "host.docker.internal:host-gateway"
   transform-core-aio:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: alfresco/alfresco-transform-core-aio:5.4.4
     mem_limit: 1536m
     environment:
@@ -149,6 +153,7 @@ services:
       activemq:
         condition: service_healthy
   share:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: docker.io/alfresco/alfresco-share:26.2.2
     mem_limit: 1g
     environment:
@@ -175,6 +180,7 @@ services:
   # Renamed from the stock `postgres` so it is not mistaken for this project's own
   # postgres-pgvector (5433) in `docker ps` / `docker compose` output.
   alfresco-postgres:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: postgres:17.9
     mem_limit: 512m
     environment:
@@ -193,6 +199,7 @@ services:
       retries: 3
       start_period: 5s
   batch-indexing:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     # Reads the repository database + content and writes the search index (Elasticsearch or
     # OpenSearch — same REST API, same settings).
     # ALFRESCO_CONTENT_TRANSFORM_SHAREDSECRET must match -Dsolr.sharedSecret on alfresco.
@@ -229,6 +236,7 @@ services:
       # instead (harmless afterwards - it only applies when no watermark exists yet):
       ALFRESCO_REINDEX_CONTINUOUS_SEEDFROMEARLIEST: "true"
   activemq:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: docker.io/alfresco/alfresco-activemq:6.2.9-jre17-rockylinux8
     mem_limit: 1g
     environment:
@@ -258,6 +266,7 @@ services:
       retries: 5
       start_period: 5s
   content-app:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: alfresco/alfresco-content-app:8.0.0
     mem_limit: 128m
     environment:
@@ -269,6 +278,7 @@ services:
       retries: 3
       start_period: 1s
   control-center:
+    profiles: ["alfresco"]   # in this deployment (COMPOSE_PROFILES)
     image: quay.io/alfresco/alfresco-control-center:11.0.0
     mem_limit: 128m
     environment:

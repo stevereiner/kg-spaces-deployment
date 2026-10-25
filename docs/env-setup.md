@@ -61,8 +61,11 @@ their few placeholders (`ALFRESCO_SEARCH_HOST`, `VLLM_MODEL`, ...) from `flexibl
 Flexible GraphRAG checkout. `docker compose -p kg-spaces up -d --env-file other.env` uses `other.env` in place of `.env`
 (the whole file, not just its differences).
 
-`COMPOSE_PROFILES` in `.env` (comma-separated) turns on optional services: the graph databases of
-[graph storage](graph-storage.md), `langflow`, `debug` (dashboards, Kafka UI).
+`COMPOSE_PROFILES` in `.env` (comma-separated) says which parts run besides OpenArch, Flexible GraphRAG and the
+proxy: the content repositories and their KG Spaces apps (`alfresco`, `kg-spaces-aca`, `nuxeo`, `kg-spaces-nuxeo`,
+written by `setup.sh` / `setup.bat`: README, Content repositories), and optional services: the graph databases of
+[graph storage](graph-storage.md), `langflow`, `debug` (dashboards, Kafka UI). Repositories outside the deployment:
+`ALFRESCO_SERVER_URL` / `NUXEO_SERVER_URL` and their auto sync settings, in `.env`.
 
 ## The backend container's environment
 
@@ -77,7 +80,9 @@ for the same variable:
    `ALFRESCO_STOMP_HOST` / `ALFRESCO_STOMP_PORT`, `CMIS_URL`, `NUXEO_URL`, `NUXEO_WEBUI_URL` (where the browser opens
    Nuxeo documents; from 0.9.0), `NUXEO_KAFKA_BOOTSTRAP_SERVERS`, `OPENARCH_URL`,
    `INCREMENTAL_STATE_STORE`, `ENABLE_INCREMENTAL_UPDATES`, and Langflow's URL. Several take their values from `.env`
-   through placeholders (e.g. `INCREMENTAL_STATE_STORE: ${INCREMENTAL_STATE_STORE:-postgres}`).
+   through placeholders (e.g. `INCREMENTAL_STATE_STORE: ${INCREMENTAL_STATE_STORE:-postgres}`; `NUXEO_URL` from
+   `NUXEO_SERVER_URL`, `ALFRESCO_STOMP_*`, `ALFRESCO_ACA_URL` and `NUXEO_KAFKA_BOOTSTRAP_SERVERS` for repositories
+   outside the deployment).
 
 So a setting in `flexible-graphrag.env` applies unless `flexible-graphrag/docker/.env` or the override sets the same
 variable. Langflow (`--profile langflow`) gets layers 1 and 2 the same way (`flexible-graphrag/langflow.override.yaml`).
@@ -89,6 +94,8 @@ The UIs need no settings: their nginx forwards `/api` to the backend.
 |---|---|---|
 | use another LLM, embedding model or key | `LLM_PROVIDER`, `EMBEDDING_KIND`, ... | `flexible-graphrag.env` |
 | use other Flexible GraphRAG databases | enable them in `flexible-graphrag/docker/docker-compose.kg-spaces.yaml`, then `PG_GRAPH_DB`, `VECTOR_DB`, ... | `flexible-graphrag.env` (addresses are already in `flexible-graphrag/docker/.env`) |
+| run only Alfresco, only Nuxeo, or neither | `setup.sh alfresco` / `nuxeo` / `none` (writes `COMPOSE_PROFILES`) | `.env` |
+| use an Alfresco or Nuxeo outside the deployment | `ALFRESCO_SERVER_URL` / `NUXEO_SERVER_URL` (and their auto sync settings), setup without that repository | `.env` |
 | move a host port | e.g. `OPENARCH_PORT`, `NUXEO_PORT`, `BACKEND_PORT` | `.env` |
 | keep data source configs and document state in OpenArch | `INCREMENTAL_STATE_STORE=openarch` (backend 0.9.0 or later) | `.env` |
 | run images you built | `FLEXIBLE_GRAPHRAG_BACKEND_IMAGE`, `FLEXIBLE_GRAPHRAG_UI_*_IMAGE`, `OPENARCH_IMAGE`, `NUXEO_IMAGE` | `.env` |

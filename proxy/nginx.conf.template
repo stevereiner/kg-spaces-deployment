@@ -58,7 +58,8 @@ http {
         }
 
         # Alfresco repository, Share and Control Center: the rules of Alfresco's Traefik labels (Flexible GraphRAG's
-        # docker/includes/commons/base.yaml)
+        # docker/includes/commons/base.yaml). The repository is this deployment's or one outside it
+        # (ALFRESCO_SERVER_URL); Share, the Content App and Control Center are this deployment's
         location = /alfresco { return 301 /alfresco/; }
         location = /share    { return 301 /share/; }
         # the Solr API is not for browsers, directly or through Share's proxy
@@ -68,11 +69,11 @@ http {
         location ~ ^/alfresco/(wc)?s(ervice)?/prometheus {
             allow 127.0.0.1;
             deny all;
-            set $alfresco http://alfresco:8080;
+            set $alfresco ${ALFRESCO_SERVER_URL};
             proxy_pass $alfresco;
         }
         location /alfresco/ {
-            set $alfresco http://alfresco:8080;
+            set $alfresco ${ALFRESCO_SERVER_URL};
             proxy_pass $alfresco;
         }
         location /share/ {
@@ -113,9 +114,9 @@ http {
             proxy_pass $control_center/$2$is_args$args;
         }
 
-        # Nuxeo (also on its own port)
+        # Nuxeo (also on its own port): this deployment's, or one outside it (NUXEO_SERVER_URL)
         location /nuxeo/ {
-            set $nuxeo http://nuxeo:8080;
+            set $nuxeo ${NUXEO_SERVER_URL};
             proxy_pass $nuxeo;
         }
 
@@ -177,10 +178,10 @@ http {
             proxy_pass $backend_spec;
         }
 
-        # the paths above, for the landing page's links
+        # the paths above, for the landing page's links, and which parts run (COMPOSE_PROFILES), for its sections
         location = /paths.json {
             default_type application/json;
-            return 200 '{"kgSpacesAca": "${KG_SPACES_ACA_PATH}/", "kgSpacesNuxeo": "${KG_SPACES_NUXEO_PATH}/", "fgReact": "${FG_REACT_PATH}/", "fgVue": "${FG_VUE_PATH}/", "fgAngular": "${FG_ANGULAR_PATH}/", "fgApi": "${FG_API_PATH}/"}';
+            return 200 '{"kgSpacesAca": "${KG_SPACES_ACA_PATH}/", "kgSpacesNuxeo": "${KG_SPACES_NUXEO_PATH}/", "fgReact": "${FG_REACT_PATH}/", "fgVue": "${FG_VUE_PATH}/", "fgAngular": "${FG_ANGULAR_PATH}/", "fgApi": "${FG_API_PATH}/", "profiles": "${COMPOSE_PROFILES}"}';
         }
 
         # Flexible GraphRAG backend

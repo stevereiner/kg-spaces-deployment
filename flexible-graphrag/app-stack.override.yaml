@@ -28,21 +28,24 @@ services:
       # docker/.env) or openarch (the OpenArch tree; needs a backend image from 0.9.0 on)
       INCREMENTAL_STATE_STORE: ${INCREMENTAL_STATE_STORE:-postgres}
       OPENARCH_URL: http://openarch:8080
-      # Alfresco through the proxy, and ActiveMQ's STOMP on its published port: up to 0.8.x the backend reaches
-      # STOMP on the host of each Alfresco data source's URL; from 0.9.0 ALFRESCO_STOMP_HOST says where
+      # Alfresco through the proxy (this deployment's, or one outside it: ALFRESCO_SERVER_URL), and ActiveMQ's STOMP:
+      # this deployment's on its published port, or that Alfresco's (ALFRESCO_STOMP_HOST / ALFRESCO_STOMP_PORT in
+      # .env). Up to 0.8.x the backend reaches STOMP on the host of each Alfresco data source's URL; from 0.9.0
+      # ALFRESCO_STOMP_HOST says where
       ALFRESCO_URL: http://host.docker.internal:${PROXY_PORT:-8080}
       # the default CMIS address (a CMIS ingest without a url): Alfresco's CMIS through the proxy
       CMIS_URL: http://host.docker.internal:${PROXY_PORT:-8080}/alfresco/api/-default-/public/cmis/versions/1.1/atom
-      ALFRESCO_STOMP_HOST: host.docker.internal
-      ALFRESCO_STOMP_PORT: ${ACTIVEMQ_STOMP_PORT:-8613}
+      ALFRESCO_STOMP_HOST: ${ALFRESCO_STOMP_HOST:-host.docker.internal}
+      ALFRESCO_STOMP_PORT: ${ALFRESCO_STOMP_PORT:-${ACTIVEMQ_STOMP_PORT:-8613}}
       # where the BROWSER opens Alfresco documents (answers' and results' links): ACA through the proxy (ALFRESCO_URL
-      # above is the backend's own address, which a browser can't reach)
-      ALFRESCO_ACA_URL: http://${KG_SPACES_HOST:-localhost}:${PROXY_PORT:-8080}/content-app
-      NUXEO_URL: http://nuxeo:8080/nuxeo
+      # above is the backend's own address, which a browser can't reach), or ALFRESCO_ACA_URL in .env
+      ALFRESCO_ACA_URL: ${ALFRESCO_ACA_URL:-http://${KG_SPACES_HOST:-localhost}:${PROXY_PORT:-8080}/content-app}
+      # this deployment's Nuxeo, or one outside it (NUXEO_SERVER_URL)
+      NUXEO_URL: ${NUXEO_SERVER_URL:-http://nuxeo:8080}/nuxeo
       # where the BROWSER opens Nuxeo documents (answers' and results' links): Web UI through the proxy, on the same
       # address as KG Spaces for Nuxeo (NUXEO_URL above is the backend's own address; from 0.9.0)
       NUXEO_WEBUI_URL: http://${KG_SPACES_HOST:-localhost}:${PROXY_PORT:-8080}/nuxeo/ui
-      NUXEO_KAFKA_BOOTSTRAP_SERVERS: nuxeo-kafka:29092
+      NUXEO_KAFKA_BOOTSTRAP_SERVERS: ${NUXEO_KAFKA_BOOTSTRAP_SERVERS:-nuxeo-kafka:29092}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports: !override

@@ -19,17 +19,19 @@ services:
       context: ${KG_SPACES_NUXEO_CONTEXT:-https://github.com/stevereiner/kg-spaces-nuxeo.git#${KG_SPACES_NUXEO_GIT_REF:-main}}
       dockerfile: docker/Dockerfile
     image: ${KG_SPACES_NUXEO_IMAGE:-kg-spaces/kg-spaces-nuxeo:${KG_SPACES_NUXEO_GIT_REF:-main}}
+    profiles: ["kg-spaces-nuxeo"]   # COMPOSE_PROFILES in .env
     restart: unless-stopped
     environment:
-      # for the app's own port: where its nginx sends /nuxeo/ and /api/
-      NUXEO_URL: http://nuxeo:8080
+      # for the app's own port: where its nginx sends /nuxeo/ and /api/ (this deployment's Nuxeo, or one outside it)
+      NUXEO_URL: ${NUXEO_SERVER_URL:-http://nuxeo:8080}
       FLEXIBLE_GRAPHRAG_URL: ${FG_BACKEND_URL:-http://flexible-graphrag-backend:8000}   # as the proxy's /api
       # where the backend reaches Nuxeo (server to server): the backend's NUXEO_URL (flexible-graphrag/app-stack.override.yaml)
-      KG_SPACES_NUXEO_BACKEND_URL: ${FG_NUXEO_URL:-http://nuxeo:8080/nuxeo}
+      KG_SPACES_NUXEO_BACKEND_URL: ${FG_NUXEO_URL:-${NUXEO_SERVER_URL:-http://nuxeo:8080}/nuxeo}
     extra_hosts:   # a backend on the host (FG_BACKEND_URL=http://host.docker.internal:8000)
       - "host.docker.internal:host-gateway"
     ports:
       - "${KG_SPACES_NUXEO_PORT:-4290}:8080"
     depends_on:
-      nuxeo:
+      nuxeo:                    # with the nuxeo profile
         condition: service_healthy
+        required: false

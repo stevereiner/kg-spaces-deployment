@@ -24,11 +24,16 @@
   <p class="subtitle nowrap">Knowledge Graphs (KG) + Spaces (Content Repositories + Content Data Sources) = Knowledge / Content / Context Lake</p>
   <p class="subtitle tagline">Made AI Ready with Hyland OpenArch and Flexible GraphRAG</p>
 
+  <!-- data-profiles: shown when COMPOSE_PROFILES has one of these (alfresco / nuxeo: the repository in this
+       deployment; kg-spaces-aca / kg-spaces-nuxeo: its KG Spaces app, also with a repository outside it) -->
+  <section data-profiles="alfresco kg-spaces-aca nuxeo kg-spaces-nuxeo">
   <h2>Content Repositories</h2>
   <ul>
-    <li><a href="/share/">Alfresco Share</a> &middot; <a href="/content-app/">Alfresco Content App</a> &middot; <a href="/alfresco/">Alfresco repository</a> &middot; <a href="/admin/">Alfresco Control Center</a></li>
-    <li><a href="/nuxeo/ui/">Nuxeo Web UI</a></li>
+    <li data-profiles="alfresco"><a href="/share/">Alfresco Share</a> &middot; <a href="/content-app/">Alfresco Content App</a> &middot; <a href="/alfresco/">Alfresco repository</a> &middot; <a href="/admin/">Alfresco Control Center</a></li>
+    <li data-profiles="kg-spaces-aca" data-unless="alfresco"><a href="/alfresco/">Alfresco repository</a> (outside this deployment)</li>
+    <li data-profiles="nuxeo kg-spaces-nuxeo"><a href="/nuxeo/ui/">Nuxeo Web UI</a></li>
   </ul>
+  </section>
 
   <h2>Content Data Sources</h2>
   <ul>
@@ -37,16 +42,20 @@
     <li>Web Pages, Wikipedia, YouTube, Filesystem / File Upload</li>
   </ul>
 
+  <section data-profiles="kg-spaces-aca">
   <h2>KG Spaces for Alfresco Content App (ACA)</h2>
   <ul>
     <li><a data-path="kgSpacesAca" href="/kg-spaces-aca/">KG Spaces ACA</a>: the Alfresco Content App with KG Spaces</li>
   </ul>
+  </section>
 
+  <section data-profiles="kg-spaces-nuxeo">
   <h2>KG Spaces for Nuxeo</h2>
   <ul>
     <li><a href="/nuxeo/ui/">Nuxeo Web UI</a>: select documents, then <em>Add to KG Spaces</em>, or open one and <em>Ask KG Spaces about this document / folder</em></li>
     <li><a data-path="kgSpacesNuxeo" href="/kg-spaces-nuxeo/">KG Spaces for Nuxeo</a>: the app those actions open</li>
   </ul>
+  </section>
 
   <h2>Flexible GraphRAG</h2>
   <ul>
@@ -70,10 +79,17 @@
   </ul>
 
   <script>
-    // the deployment's own paths (KG_SPACES_ACA_PATH, FG_*_PATH in .env), as the proxy serves them
+    // the deployment's own paths (KG_SPACES_ACA_PATH, FG_*_PATH in .env), as the proxy serves them, and the parts
+    // that run (COMPOSE_PROFILES): sections and items for parts that don't are hidden
     fetch("/paths.json").then(r => r.json()).then(paths => {
       for (const a of document.querySelectorAll("a[data-path]")) {
         if (paths[a.dataset.path]) a.href = paths[a.dataset.path] + (a.dataset.rest || "");
+      }
+      if (typeof paths.profiles !== "string") return;
+      const on = new Set(paths.profiles.split(",").map(p => p.trim()));
+      const any = list => (list || "").split(" ").some(p => on.has(p));
+      for (const el of document.querySelectorAll("[data-profiles]")) {
+        if (!any(el.dataset.profiles) || any(el.dataset.unless)) el.hidden = true;
       }
     }).catch(() => {});
   </script>

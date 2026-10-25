@@ -11,13 +11,18 @@
 #   flexible-graphrag/schemas/, flows/ <- schemas/, flows/ (mounted into the backend and Langflow)
 #   flexible-graphrag.env.sample       <- flexible-graphrag/env-sample.txt, under this deployment's header
 #
-#   scripts/sync-flexible-graphrag.sh v0.9.0
+#   scripts/sync-flexible-graphrag.sh v0.9.0 [--keep-sample]
+#
+# --keep-sample: leave flexible-graphrag.env.sample as it is (setup.sh uses it on a first run, for the files git
+# doesn't keep here)
 #
 # Downloads the tag's archive from GitHub (no checkout needed). Review the changes before committing, and set
 # FLEXIBLE_GRAPHRAG_VERSION in .env to the same version.
 set -eu
 
-tag="${1:?usage: scripts/sync-flexible-graphrag.sh <tag, e.g. v0.9.0>}"
+tag="${1:?usage: scripts/sync-flexible-graphrag.sh <tag, e.g. v0.9.0> [--keep-sample]}"
+keep_sample=""
+if [ "${2:-}" = --keep-sample ]; then keep_sample=1; elif [ -n "${2:-}" ]; then echo "unknown option: $2" >&2; exit 2; fi
 repo="${FLEXIBLE_GRAPHRAG_REPO:-stevereiner/flexible-graphrag}"
 here="$(cd "$(dirname "$0")/.." && pwd)"
 fg="$here/flexible-graphrag"
@@ -77,6 +82,11 @@ for d in schemas flows; do
   rm -rf "$fg/$d"
   if [ -d "$src/$d" ]; then cp -r "$src/$d" "$fg/$d"; fi
 done
+
+if [ -n "$keep_sample" ]; then
+  echo "Synced flexible-graphrag/docker, schemas and flows from ${repo} ${tag} (flexible-graphrag.env.sample kept)"
+  exit 0
+fi
 
 # keep this deployment's header (everything up to the first blank line after it), replace the rest
 header="$(awk 'NR==1,/^$/' "$here/flexible-graphrag.env.sample" | sed "s/(v[0-9][0-9.]*, the version of the images/(${tag}, the version of the images/")"

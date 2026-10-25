@@ -21,9 +21,11 @@ services:
         LIB_SOURCE: ${KG_SPACES_ACA_LIB_SOURCE:-npm}   # npm, or local: the tarball in the context's docker/lib/
         LIB_VERSION: ${KG_SPACES_ACA_LIB_VERSION:-latest}   # @flexible-graphrag/angular-ui
     image: ${KG_SPACES_ACA_IMAGE:-kg-spaces/kg-spaces-aca:${KG_SPACES_ACA_GIT_REF}}
+    profiles: ["kg-spaces-aca"]   # COMPOSE_PROFILES in .env
     restart: unless-stopped
     environment:
-      ALFRESCO_URL: http://alfresco:8080
+      # this deployment's Alfresco, or one outside it (ALFRESCO_SERVER_URL)
+      ALFRESCO_URL: ${ALFRESCO_SERVER_URL:-http://alfresco:8080}
       FLEXIBLE_GRAPHRAG_URL: ${FG_BACKEND_URL:-http://flexible-graphrag-backend:8000}   # as the proxy's /api
       # where the backend reaches Alfresco (server to server), written into app.config.json: through the proxy, like
       # the backend's ALFRESCO_URL, since a 0.8.x backend also takes ActiveMQ's STOMP host from it
@@ -33,8 +35,9 @@ services:
     ports:
       - "${KG_SPACES_ACA_PORT:-4280}:8080"
     depends_on:
-      alfresco:
+      alfresco:                 # with the alfresco profile
         condition: service_healthy
+        required: false
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/ || exit 1"]
       interval: 30s

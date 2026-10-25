@@ -10,13 +10,95 @@ with its UIs, [KG Spaces ACA](https://github.com/stevereiner/kg-spaces-aca),
 [KG Spaces for Nuxeo](https://github.com/stevereiner/kg-spaces-nuxeo), the content repositories it ingests
 from (Alfresco, Nuxeo) and [Hyland OpenArch](https://github.com/Hyland/OpenArch).
 
-Hyland OpenArch is in the default stack; Flexible GraphRAG uses it when set to:
+Five UIs: KG Spaces ACA, KG Spaces for Nuxeo, and Flexible GraphRAG's React, Vue and Angular UIs. All five search and
+chat with the ingested content. The KG Spaces apps make choosing what to ingest easier: you pick files and folders in
+the content repository's own file lists (Alfresco Content App, Nuxeo Web UI) and add them to KG Spaces, instead of
+setting up a data source in a form.
 
-- `INCREMENTAL_STATE_STORE=openarch` (in `.env`): data sources and document state in OpenArch trees, in place of
-  PostgreSQL;
-- `ENABLE_OPENARCH=true` (in `flexible-graphrag.env`, with `OPENAI_EMBEDDING_DIMENSION=1024`): OpenArch for search +
-  vector storage and retrieval, fused with Flexible GraphRAG's property graph and / or RDF results. Otherwise
-  Flexible GraphRAG's configured `VECTOR_DB` and `SEARCH_DB` are used.
+Hyland OpenArch and Flexible GraphRAG always run; Alfresco and Nuxeo can run here, outside this deployment, or not at
+all ([Content repositories](#content-repositories-here-outside-or-none)). Flexible GraphRAG uses OpenArch when set to
+(two independent settings, [how they combine](#hyland-openarch-state-store-and-search--vector-store)):
+
+- `INCREMENTAL_STATE_STORE=openarch` (in `.env`, the deployment's default): data sources and document state in
+  OpenArch trees, in place of PostgreSQL;
+- `ENABLE_OPENARCH=true` (in `flexible-graphrag.env`): search + vectors done by OpenArch (in its OpenSearch), fused with
+  Flexible GraphRAG's property graph and / or RDF results, in place of Flexible GraphRAG's `SEARCH_DB` / `VECTOR_DB`.
+  OpenArch currently indexes 1024-dimension vectors only: an embedding model that gives 1024 (e.g. Ollama's
+  `mxbai-embed-large`) or can be set to 1024 (OpenAI's `text-embedding-3-small` / `-large` with
+  `OPENAI_EMBEDDING_DIMENSION=1024`).
+
+## KG Spaces projects
+
+| Repo | Role |
+|---|---|
+| [flexible-graphrag](https://github.com/stevereiner/flexible-graphrag) | Flexible GraphRAG: the backend (ingest, auto sync, hybrid search, AI Q&A over property graph, RDF, vector and search databases), its React / Vue / Angular UIs, MCP server, and the shared Angular UI library ([`@flexible-graphrag/angular-ui`](https://www.npmjs.com/package/@flexible-graphrag/angular-ui)) the KG Spaces apps use |
+| [kg-spaces-aca](https://github.com/stevereiner/kg-spaces-aca) | KG Spaces ACA: the Alfresco Content App with the KG Spaces extension |
+| [kg-spaces-nuxeo](https://github.com/stevereiner/kg-spaces-nuxeo) | KG Spaces for Nuxeo: a KG Spaces menu in Nuxeo Web UI (add-on) and the app it opens |
+| **[kg-spaces-deployment](https://github.com/stevereiner/kg-spaces-deployment)** | Docker Compose stack that wires everything together (this repo) |
+| [python-openarch-api](https://github.com/stevereiner/python-openarch-api) | Python client for Hyland OpenArch's REST API, which Flexible GraphRAG uses for OpenArch |
+| [Hyland/OpenArch](https://github.com/Hyland/OpenArch) | Hyland OpenArch, by Hyland: AI-ready content from all sources, with permissions (in the default stack) |
+| [nuxeo-graph-storage](https://github.com/stevereiner/nuxeo-graph-storage) | builds this deployment's Nuxeo image (stock Nuxeo, documents in PostgreSQL, by default); optionally Nuxeo's documents in Neo4j or ArcadeDB (prototype) |
+| [openarch-graph-storage](https://github.com/stevereiner/openarch-graph-storage) | optionally OpenArch's repositories in Neo4j or ArcadeDB (prototype) |
+| [oak-graph-store](https://github.com/stevereiner/oak-graph-store) | the same for Apache Jackrabbit Oak (prototype; not part of this deployment) |
+
+## Quick start
+
+```bash
+git clone https://github.com/stevereiner/kg-spaces-deployment.git
+cd kg-spaces-deployment
+sh setup.sh        # Windows, in PowerShell or Command Prompt: setup.bat
+```
+
+`setup.sh [full|alfresco|nuxeo|none] [--sync] [--rebuild]` (`setup.bat` the same) checks Docker, sets which content
+repositories run here ([below](#content-repositories-here-outside-or-none); `full` the first time), runs the step
+scripts in `scripts/` that are still needed and starts the stack (`docker compose -p kg-spaces up -d`). The first run
+stops after making `flexible-graphrag.env`: set your LLM and embedding providers there, with their key if they need
+one (`OPENAI_API_KEY` with the sample's OpenAI defaults; Ollama needs none), and optionally Hyland OpenArch as the
+search + vector store (`ENABLE_OPENARCH=true` with a 1024-dimension embedding model, [above](#kg-spaces-deployment));
+then run it again. Before starting, it lists containers of other stacks holding the deployment's ports
+(`scripts/check-ports.sh` / `.ps1`), to stop first. Steps already done are skipped, so it can be run again any time.
+`--sync` copies Flexible GraphRAG's files again (and its settings sample), `--rebuild` builds the images again.
+Optional services (Langflow, debug tools, graph storage): `COMPOSE_PROFILES` in `.env`. The steps, to run them
+yourself: [Run](#run).
+
+## Content repositories: here, outside, or none
+
+Hyland OpenArch, Flexible GraphRAG (backend and its three UIs) and the proxy always run. Alfresco and Nuxeo each run
+in this deployment, outside it, or not at all; a repository's KG Spaces app runs whenever the repository is here or
+outside:
+
+| `setup` | Runs here | `COMPOSE_PROFILES` (in `.env`, written by setup) |
+|---|---|---|
+| `full` (the default in a fresh clone) | Alfresco + KG Spaces ACA, Nuxeo + KG Spaces for Nuxeo | `alfresco,kg-spaces-aca,nuxeo,kg-spaces-nuxeo` |
+| `alfresco` | Alfresco + KG Spaces ACA | `alfresco,kg-spaces-aca` |
+| `nuxeo` | Nuxeo + KG Spaces for Nuxeo | `nuxeo,kg-spaces-nuxeo` |
+| `none` | neither: Flexible GraphRAG + OpenArch, with its other data sources (filesystem / upload, S3, SharePoint, web pages, ...) | (none of the four) |
+
+Setup with no argument keeps the choice `.env` has. A change stops the containers of the parts left out (their
+volumes stay, so switching back keeps their content); optional profiles in `COMPOSE_PROFILES` (`langflow`, `debug`,
+graph storage) are kept. Plain `docker compose -p kg-spaces ...` commands follow `COMPOSE_PROFILES` too. The landing
+page shows only the parts that run.
+
+### Repositories outside this deployment
+
+Set the repository's server address in `.env`, as the deployment's containers reach it, without `/alfresco` or
+`/nuxeo` (one on this machine: `http://host.docker.internal:<port>`), and run setup without that repository (e.g.
+`setup alfresco` with an outside Nuxeo, or `setup none` with both outside). The proxy's `/alfresco/` or `/nuxeo/`, the
+backend and the KG Spaces app then use it.
+
+| Setting (`.env`) | What |
+|---|---|
+| `ALFRESCO_SERVER_URL` | the outside Alfresco, e.g. `http://host.docker.internal:8180` |
+| `ALFRESCO_STOMP_HOST`, `ALFRESCO_STOMP_PORT` | its ActiveMQ's STOMP, for Alfresco auto sync (with repository events on, as in Flexible GraphRAG's `alfresco.yaml`) |
+| `ALFRESCO_ACA_URL` | where answers' and results' links open its documents (its Content App); by default this deployment's `/content-app`, which runs only with Alfresco here |
+| `NUXEO_SERVER_URL` | the outside Nuxeo, e.g. `http://host.docker.internal:8180` |
+| `NUXEO_KAFKA_BOOTSTRAP_SERVERS` | its Kafka, for Nuxeo auto sync (audit events to Kafka) |
+
+KG Spaces for Nuxeo with an outside Nuxeo: Web UI's KG Spaces menu is an add-on in Nuxeo. Copy
+`nuxeo/addons/kg-spaces-nuxeo-addon-*.jar` (built by setup) into that Nuxeo's `nxserver/bundles/`, add
+`kgspaces.url=<KG_SPACES_NUXEO_URL>` (`http://localhost:8080/kg-spaces-nuxeo/` by default) to its `nuxeo.conf`, and
+restart it. Open its Web UI through this deployment's proxy (`http://localhost:8080/nuxeo/ui/`): the app then shares the
+Web UI sign-in, being on the same address. KG Spaces ACA needs nothing in Alfresco.
 
 ## Status
 
@@ -38,11 +120,14 @@ ingested, and how, is kept by Flexible GraphRAG (in PostgreSQL or Hyland OpenArc
 
 ## Run
 
+What `setup.sh` / `setup.bat` ([Quick start](#quick-start)) does, step by step:
+
 ```bash
-scripts/sync-flexible-graphrag.sh v0.9.0                # copies files from the Flexible GraphRAG v0.9.0 release (below)
+sh scripts/set-repositories.sh full                     # or alfresco, nuxeo, none: COMPOSE_PROFILES in .env (above)
+sh scripts/sync-flexible-graphrag.sh v0.9.0             # copies files from the Flexible GraphRAG v0.9.0 release (below)
 cp flexible-graphrag.env.sample flexible-graphrag.env   # then set your LLM / embedding keys
-scripts/build-openarch.sh                               # OpenArch at OPENARCH_GIT_REF, the image .env pins
-scripts/build-kg-spaces-nuxeo.sh                        # KG Spaces for Nuxeo's app image, and its Web UI add-on jar into nuxeo/addons/
+sh scripts/build-openarch.sh                            # OpenArch at OPENARCH_GIT_REF, the image .env pins
+sh scripts/build-kg-spaces-nuxeo.sh                     # KG Spaces for Nuxeo's app image, and its Web UI add-on jar into nuxeo/addons/
 docker compose -p kg-spaces up -d --build
 ```
 
@@ -69,11 +154,17 @@ the folders they use) into `flexible-graphrag/docker/`, its `schemas/` and `flow
 doesn't keep them (they are gitignored here), except two of the deployment's own in `flexible-graphrag/docker/`: the
 database menu `docker-compose.kg-spaces.yaml` and `.env`. It needs a POSIX shell (on Windows, Git Bash).
 
-RDF graph database: the menu (`flexible-graphrag/docker/docker-compose.kg-spaces.yaml`) starts Ontotext GraphDB, which
-needs your GraphDB license at `flexible-graphrag/docker/ontotext-graphdb/GRAPHDB.license` (without it GraphDB fails
-every write and query). Without a license, use another RDF store or none: in the menu, comment out
-`- includes/ontotext-graphdb.yaml` and uncomment `- includes/jena-fuseki.yaml` or `- includes/oxigraph.yaml` (or
-neither), and in `flexible-graphrag.env` set `RDF_GRAPH_DB=fuseki`, `oxigraph` or `none` (the sample's default).
+Flexible GraphRAG's databases: the menu (`flexible-graphrag/docker/docker-compose.kg-spaces.yaml`) says which run, and
+`flexible-graphrag.env` which ones Flexible GraphRAG uses: `PG_GRAPH_DB` (property graph; the sample's default
+`neo4j`, the menu also runs ArcadeDB), `RDF_GRAPH_DB` (RDF graph; the sample's default `none`), `VECTOR_DB`,
+`SEARCH_DB` ([below](#flexible-graphrags-databases); each one's settings: Flexible GraphRAG's
+[Databases](https://stevereiner.github.io/flexible-graphrag/HOME/HOME-DATABASES/) and
+[Configuration](https://stevereiner.github.io/flexible-graphrag/HOME/HOME-CONFIGURATION/) documentation). For the RDF
+graph, the menu starts Ontotext GraphDB, which needs your GraphDB license at
+`flexible-graphrag/docker/ontotext-graphdb/GRAPHDB.license` (without it GraphDB fails every write and query). Without
+a license, use another RDF store or none: in the menu, comment out `- includes/ontotext-graphdb.yaml` and uncomment
+`- includes/jena-fuseki.yaml` or `- includes/oxigraph.yaml` (or neither), and in `flexible-graphrag.env` set
+`RDF_GRAPH_DB=fuseki`, `oxigraph` or `none`.
 
 Which settings go in which file (`.env`, `flexible-graphrag.env`, `flexible-graphrag/docker/.env`), and which wins:
 [docs/env-setup.md](docs/env-setup.md). For Flexible GraphRAG's own settings (LLMs, databases, data sources), see
@@ -116,6 +207,7 @@ Docker.
 
 | Path | What |
 |---|---|
+| `setup.sh` / `setup.bat` | first run and later runs: checks Docker, runs the step scripts still needed, starts the stack ([Quick start](#quick-start)) |
 | `compose.*.yaml` | one file per component: OpenArch, Alfresco, Nuxeo, Flexible GraphRAG, KG Spaces ACA, KG Spaces for Nuxeo, proxy |
 | `openarch/` | the Dockerfile of an OpenArch image built from source (`scripts/build-openarch.sh`) |
 | `alfresco/activemq.xml` | ActiveMQ's configuration with STOMP enabled |
@@ -123,11 +215,14 @@ Docker.
 | `flexible-graphrag/` | the deployment's settings on top of Flexible GraphRAG's `app-stack.yaml` and `langflow.yaml` (`*.override.yaml`), the UIs' nginx configurations (with `/api`), and `schemas/` and `flows/` (mounted into the backend and Langflow) |
 | `flexible-graphrag/docker/` | a copy of Flexible GraphRAG's `docker/` folder (same version as the images): `docker-compose.kg-spaces.yaml` is the deployment's database menu (ArcadeDB enabled; the release's own `docker-compose.yaml` sits next to it, to compare after a sync), `includes/` has the compose file of every database it supports, and `.env` is its `docker-env-sample.txt` with SCENARIO B on (service-name addresses) |
 | `flexible-graphrag.env.sample` | Flexible GraphRAG's full settings sample: copy to `flexible-graphrag.env` |
-| `scripts/sync-flexible-graphrag.sh <tag>` | refreshes `flexible-graphrag/docker/`, `schemas/`, `flows/` and the settings sample from a Flexible GraphRAG release (keeps the menu and `docker/.env`) |
+| `scripts/sync-flexible-graphrag.sh <tag>` | refreshes `flexible-graphrag/docker/`, `schemas/`, `flows/` and the settings sample from a Flexible GraphRAG release (keeps the menu and `docker/.env`; `--keep-sample` leaves the settings sample as it is) |
 | `scripts/build-flexible-graphrag.sh` / `.bat` | builds images from a Flexible GraphRAG checkout: the backend, with `--ui` the UIs, with `--langflow` Langflow, `--no-backend` to skip the backend; use them with `FLEXIBLE_GRAPHRAG_BACKEND_IMAGE` / `FLEXIBLE_GRAPHRAG_UI_*_IMAGE` / `FLEXIBLE_GRAPHRAG_LANGFLOW_IMAGE` in `.env` |
 | `scripts/build-kg-spaces-nuxeo.sh` / `.bat` | builds KG Spaces for Nuxeo: its app image and its Web UI add-on jar (into `nuxeo/addons/`; restart Nuxeo to install it), from GitHub at `KG_SPACES_NUXEO_GIT_REF` or a checkout at `KG_SPACES_NUXEO_CONTEXT` |
 | `nuxeo/` | `addons/`: Nuxeo add-on jars, installed at every Nuxeo start by `init/50-kg-spaces-addons.sh`, which also writes Nuxeo's `kgspaces.url` (where the Web UI actions open the app) from `KG_SPACES_NUXEO_URL` |
 | `scripts/build-openarch.sh` / `.bat` | builds OpenArch from its GitHub repository at a commit (`OPENARCH_IMAGE`) |
+| `scripts/set-repositories.sh` / `.ps1` | which content repositories run here (`full`, `alfresco`, `nuxeo`, `none`): writes `COMPOSE_PROFILES` in `.env` and stops the parts left out |
+| `scripts/check-ports.sh` / `.ps1` | lists running containers of other stacks that hold host ports the deployment publishes (setup runs it before starting) |
+| `scripts/remove-detached.sh` / `.ps1` | removes the deployment's containers an earlier failed start left without a network (e.g. on a port already taken), so `up` creates them again; volumes are kept (setup runs it before starting) |
 | `scripts/build-openarch-graph-storage.sh` / `.bat` | builds OpenArch with its repositories on Neo4j or ArcadeDB, from openarch-graph-storage on GitHub or a checkout ([docs/graph-storage.md](docs/graph-storage.md)) |
 | `docs/` | more detail on topics the README summarizes |
 
@@ -143,14 +238,24 @@ Docker.
    already in `flexible-graphrag/docker/.env`.
 3. `docker compose -p kg-spaces up -d`.
 
-Search and vectors in OpenArch instead of Flexible GraphRAG's own databases: `ENABLE_OPENARCH=true` (from 0.9.0;
-embeddings must have 1024 dimensions, e.g. `text-embedding-3-small` with `dimensions=1024`). Flexible GraphRAG then
-writes each document's text into OpenArch's `nuxeo` index and its chunks into `nuxeo_embeddings`, searches them with
-OpenArch's hybrid query, and ignores `VECTOR_DB` / `SEARCH_DB`. Don't point Flexible GraphRAG's own OpenSearch store
-at OpenArch's OpenSearch: that would keep a second copy of the chunks there.
+### Hyland OpenArch: state store and search + vector store
 
-Data sources and document state in OpenArch trees instead of PostgreSQL: `INCREMENTAL_STATE_STORE=openarch` in
-`.env`.
+Two independent settings. `ENABLE_OPENARCH=true` (in `flexible-graphrag.env`, from 0.9.0): Flexible GraphRAG writes
+each document's text into OpenArch's `nuxeo` index and its chunks + embeddings into `nuxeo_embeddings`, and searches
+them with OpenArch's hybrid query; its own `SEARCH_DB` / `VECTOR_DB` are not used. Don't point Flexible GraphRAG's own
+OpenSearch store at OpenArch's OpenSearch: that would keep a second copy of the chunks there.
+`INCREMENTAL_STATE_STORE=openarch` (in `.env`): data sources and document state in OpenArch trees instead of
+PostgreSQL. Both need `ENABLE_INCREMENTAL_UPDATES=true` for data sources and auto sync, which the deployment sets.
+Flexible GraphRAG's property graph and RDF databases (`PG_GRAPH_DB`, `RDF_GRAPH_DB`) are used the same way in all four:
+
+| | `ENABLE_OPENARCH=false`: search + vectors by Flexible GraphRAG (its `SEARCH_DB` / `VECTOR_DB`) | `ENABLE_OPENARCH=true`: search + vectors by OpenArch (its OpenSearch), not Flexible GraphRAG's `SEARCH_DB` / `VECTOR_DB` |
+|---|---|---|
+| `INCREMENTAL_STATE_STORE=postgres` | data sources and document state in PostgreSQL; nothing in OpenArch | each document in OpenArch's tree with its text, chunks and embeddings; data sources and document state in PostgreSQL |
+| `INCREMENTAL_STATE_STORE=openarch` | data sources and document state in OpenArch's tree (documents there without text or chunks) | all in OpenArch's tree: each document with its text, chunks, embeddings and state, and the data sources |
+
+With `INCREMENTAL_STATE_STORE=openarch`, the settings made in the UIs' Processing rows (auto sync, graphs, search +
+vectors) are kept per folder as well as per document, so new documents a sync finds under a folder follow that
+folder's settings; with PostgreSQL they are kept per document, and a sync takes every new document.
 
 To run Flexible GraphRAG code not released yet, build its images from a checkout and name them in `.env`:
 
@@ -228,7 +333,7 @@ Settings in `.env`:
 | `KG_SPACES_NUXEO_CONTEXT` | (unset) | a local checkout to build instead, e.g. `../kg-spaces-nuxeo` |
 | `KG_SPACES_NUXEO_IMAGE` | `kg-spaces/kg-spaces-nuxeo:<git ref>` | the app image's name |
 | `FG_BACKEND_URL` | `http://flexible-graphrag-backend:8000` | the backend the proxy's `/api` (and `FG_API_PATH`) and the app's own port send to; `http://host.docker.internal:8000` for a backend running from a checkout on the host |
-| `FG_NUXEO_URL` | `http://nuxeo:8080/nuxeo` | where that backend reaches Nuxeo (the app sends it in `nuxeo_config`): keep it the same as the backend's `NUXEO_URL`; `http://localhost:8081/nuxeo` for a backend on the host |
+| `FG_NUXEO_URL` | `NUXEO_SERVER_URL` + `/nuxeo` (this deployment's Nuxeo: `http://nuxeo:8080/nuxeo`) | where that backend reaches Nuxeo (the app sends it in `nuxeo_config`): keep it the same as the backend's `NUXEO_URL`; `http://localhost:8081/nuxeo` for a backend on the host |
 
 The deployment's backend (from 0.9.0) gets `NUXEO_WEBUI_URL` (`flexible-graphrag/app-stack.override.yaml`), so the
 document links in results and answers open Web UI through the proxy. Whether an auto sync registered from the app
