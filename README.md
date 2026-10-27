@@ -15,6 +15,11 @@ chat with the ingested content. The KG Spaces apps make choosing what to ingest 
 the content repository's own file lists (Alfresco Content App, Nuxeo Web UI) and add them to KG Spaces, instead of
 setting up a data source in a form.
 
+![KG Spaces Deployment: the KG Spaces landing page, Nuxeo Web UI with Add to KG Spaces, KG Spaces for Nuxeo's AI query and KG Spaces for Alfresco ACA's AI chat](screen-shots/kg-spaces-deployment.png)
+
+*The KG Spaces landing page, Nuxeo Web UI with Add to KG Spaces, KG Spaces for Nuxeo's AI query and KG Spaces for
+Alfresco ACA's AI chat. With ingestions from all 14 supported data sources, to get the search filter pills.*
+
 Hyland OpenArch and Flexible GraphRAG always run; Alfresco and Nuxeo can run here, outside this deployment, or not at
 all ([Content repositories](#content-repositories-here-outside-or-none)). Flexible GraphRAG uses OpenArch when set to
 (two independent settings, [how they combine](#hyland-openarch-state-store-and-search--vector-store)):
