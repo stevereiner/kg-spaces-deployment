@@ -9,7 +9,7 @@ services:
   flexible-graphrag-langflow:
     profiles: ["langflow"]
     build: !reset null
-    image: ${FLEXIBLE_GRAPHRAG_LANGFLOW_IMAGE:-integratedsemantics/flexible-graphrag-langflow:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    image: ${FLEXIBLE_GRAPHRAG_LANGFLOW_IMAGE:-integratedsemantics/flexible-graphrag-langflow:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.1}}
     container_name: !reset null
     ports: !override
       - "${LANGFLOW_PORT:-7860}:7860"

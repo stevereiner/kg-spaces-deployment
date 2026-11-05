@@ -11,7 +11,7 @@
 #   flexible-graphrag/schemas/, flows/ <- schemas/, flows/ (mounted into the backend and Langflow)
 #   flexible-graphrag.env.sample       <- flexible-graphrag/env-sample.txt, under this deployment's header
 #
-#   scripts/sync-flexible-graphrag.sh v0.9.0 [--keep-sample]
+#   scripts/sync-flexible-graphrag.sh v0.9.1 [--keep-sample]
 #
 # --keep-sample: leave flexible-graphrag.env.sample as it is (setup.sh uses it on a first run, for the files git
 # doesn't keep here)
@@ -20,7 +20,7 @@
 # FLEXIBLE_GRAPHRAG_VERSION in .env to the same version.
 set -eu
 
-tag="${1:?usage: scripts/sync-flexible-graphrag.sh <tag, e.g. v0.9.0> [--keep-sample]}"
+tag="${1:?usage: scripts/sync-flexible-graphrag.sh <tag, e.g. v0.9.1> [--keep-sample]}"
 keep_sample=""
 if [ "${2:-}" = --keep-sample ]; then keep_sample=1; elif [ -n "${2:-}" ]; then echo "unknown option: $2" >&2; exit 2; fi
 repo="${FLEXIBLE_GRAPHRAG_REPO:-stevereiner/flexible-graphrag}"

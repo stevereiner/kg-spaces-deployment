@@ -15,7 +15,7 @@ services:
 
   flexible-graphrag-backend:
     build: !reset null
-    image: ${FLEXIBLE_GRAPHRAG_BACKEND_IMAGE:-integratedsemantics/flexible-graphrag-backend:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    image: ${FLEXIBLE_GRAPHRAG_BACKEND_IMAGE:-integratedsemantics/flexible-graphrag-backend:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.1}}
     container_name: !reset null
     env_file: !override
       - path: ${FLEXIBLE_GRAPHRAG_ENV_FILE:-./flexible-graphrag.env}
@@ -63,7 +63,7 @@ services:
 
   flexible-graphrag-ui-angular:
     build: !reset null
-    image: ${FLEXIBLE_GRAPHRAG_UI_ANGULAR_IMAGE:-integratedsemantics/flexible-graphrag-ui-angular:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    image: ${FLEXIBLE_GRAPHRAG_UI_ANGULAR_IMAGE:-integratedsemantics/flexible-graphrag-ui-angular:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.1}}
     container_name: !reset null
     ports: !override
       - "${FG_ANGULAR_PORT:-4200}:4200"
@@ -77,7 +77,7 @@ services:
 
   flexible-graphrag-ui-react:
     build: !reset null
-    image: ${FLEXIBLE_GRAPHRAG_UI_REACT_IMAGE:-integratedsemantics/flexible-graphrag-ui-react:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    image: ${FLEXIBLE_GRAPHRAG_UI_REACT_IMAGE:-integratedsemantics/flexible-graphrag-ui-react:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.1}}
     container_name: !reset null
     ports: !override
       - "${FG_REACT_PORT:-3000}:3000"
@@ -91,7 +91,7 @@ services:
 
   flexible-graphrag-ui-vue:
     build: !reset null
-    image: ${FLEXIBLE_GRAPHRAG_UI_VUE_IMAGE:-integratedsemantics/flexible-graphrag-ui-vue:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.0}}
+    image: ${FLEXIBLE_GRAPHRAG_UI_VUE_IMAGE:-integratedsemantics/flexible-graphrag-ui-vue:${FLEXIBLE_GRAPHRAG_VERSION:-0.9.1}}
     container_name: !reset null
     ports: !override
       - "${FG_VUE_PORT:-5173}:5173"
