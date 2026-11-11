@@ -5,6 +5,33 @@ All notable changes to KG Spaces Deployment are documented in this file. Version
 stack runs, with [KG Spaces ACA](https://github.com/stevereiner/kg-spaces-aca) and
 [KG Spaces for Nuxeo](https://github.com/stevereiner/kg-spaces-nuxeo) at the same version.
 
+## [2026-11-10] — v0.10.0: Flexible GraphRAG 0.10.0 and both KG Spaces apps at 0.10.0
+
+### Changed
+
+- **Version 0.10.0:** Flexible GraphRAG 0.10.0 images (backend, the three UIs, Langflow), and both
+  KG Spaces apps built from their `v0.10.0` tags with `@flexible-graphrag/angular-ui` 0.10.0.
+  - `.env`: `FLEXIBLE_GRAPHRAG_VERSION`, `KG_SPACES_ACA_GIT_REF`, `KG_SPACES_ACA_LIB_VERSION`,
+    `KG_SPACES_NUXEO_GIT_REF`.
+  - `flexible-graphrag/app-stack.override.yaml` and `langflow.override.yaml`: `0.10.0` image
+    defaults.
+  - Flexible GraphRAG 0.10.0 adds the **Graph tab**: the entities and relationships extracted from
+    documents, opened with **Show graph** from Processing, Hybrid Search and AI query / chat
+    sources. Both KG Spaces apps add **View KG Spaces graph of this document / folder** to their
+    KG Spaces menus (in Nuxeo, Web UI's menu). The proxy already passes `/api/graph/*` through
+    under `/api/`.
+  - The 0.10.0 backend also keeps other documents' graph and RDF data on delete and re-sync,
+    drops weak search matches (`SEARCH_MIN_RELATIVE_SCORE`, `VECTOR_MIN_RELATIVE_SIMILARITY`),
+    and fixes Ollama models spilling onto the CPU (`OLLAMA_CONTEXT_WINDOW`).
+- **`flexible-graphrag.env.sample`** refreshed from Flexible GraphRAG v0.10.0
+  (`scripts/sync-flexible-graphrag.sh v0.10.0`): `SEARCH_ANALYZER`, `SEARCH_MIN_RELATIVE_SCORE`,
+  `VECTOR_MIN_RELATIVE_SIMILARITY`, Spanner with LangChain, the two recommended Ollama models,
+  `OLLAMA_TIMEOUT` 300 and `OLLAMA_CONTEXT_WINDOW`. The release's database menu and Docker addresses
+  sample are unchanged.
+- `scripts/sync-flexible-graphrag.sh`: usage examples name `v0.10.0`.
+- README: Flexible GraphRAG 0.10.0 badge and versions, the sync example, and the View KG Spaces graph
+  menu item.
+
 ## [2026-11-04] — v0.9.1: Flexible GraphRAG 0.9.1 and both KG Spaces apps at 0.9.1
 
 ### Changed
