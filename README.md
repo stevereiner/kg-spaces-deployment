@@ -1,7 +1,7 @@
 # KG Spaces Deployment
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Flexible GraphRAG](https://img.shields.io/badge/Flexible%20GraphRAG-0.10.0-2E7D32.svg)](https://github.com/stevereiner/flexible-graphrag)
+[![Flexible GraphRAG](https://img.shields.io/badge/Flexible%20GraphRAG-0.11.0-2E7D32.svg)](https://github.com/stevereiner/flexible-graphrag)
 [![Docker](https://img.shields.io/badge/Docker-Compose-blue.svg)](https://docs.docker.com/compose/)
 [![Supports Hyland OpenArch](https://img.shields.io/badge/Supports-Hyland%20OpenArch-0b5394.svg)](https://github.com/Hyland/OpenArch)
 
@@ -107,16 +107,16 @@ Web UI sign-in, being on the same address. KG Spaces ACA needs nothing in Alfres
 
 ## Status
 
-Version 0.10.0 (Flexible GraphRAG 0.10.0, KG Spaces ACA 0.10.0, KG Spaces for Nuxeo 0.10.0):
+Version 0.11.0 (Flexible GraphRAG 0.11.0, KG Spaces ACA 0.11.0, KG Spaces for Nuxeo 0.11.0):
 
 | Compose file | Component | State |
 |---|---|---|
 | [`compose.openarch.yaml`](compose.openarch.yaml) | OpenArch, stock: Hyland's published image (`ghcr.io/hyland/openarch-app-jvm`, `OPENARCH_VERSION`), or one built from source at any commit; all repositories in MongoDB (a one-member replica set, as in Hyland's own compose), search and vectors in OpenSearch | runs (1.0.44, and source at `661b3177`, `34caff31` and `28f4b833`); `.env` pins source at `28f4b833` |
 | [`compose.alfresco.yaml`](compose.alfresco.yaml) | Alfresco Community 26.2: Flexible GraphRAG's own `alfresco.yaml` (all its settings: ActiveMQ with STOMP and repo events for auto sync, Keycloak identity service, AOS, Control Center, the stock Content App at `/content-app`, where answers' links open documents), routed by this deployment's nginx instead of Traefik, indexing into OpenArch's OpenSearch | runs |
 | [`compose.proxy.yaml`](compose.proxy.yaml) | nginx proxy on 8080: Alfresco (`/alfresco`, `/share`), Nuxeo (`/nuxeo`), KG Spaces ACA (`/kg-spaces-aca`), KG Spaces for Nuxeo (`/kg-spaces-nuxeo`), Flexible GraphRAG's UIs (`/fg-react`, `/fg-vue`, `/fg-angular`, and their own `/ui/...`) and backend (`/fg-api`, and `/api`), and a landing page. The deployment's paths are settings in `.env` (`KG_SPACES_ACA_PATH`, `KG_SPACES_NUXEO_PATH`, `FG_REACT_PATH`, `FG_VUE_PATH`, `FG_ANGULAR_PATH`, `FG_API_PATH`), and so is the backend behind `/api` and `FG_API_PATH` (`FG_BACKEND_URL`: the deployment's container, or one running from a checkout on the host) | runs |
-| [`compose.flexible-graphrag.yaml`](compose.flexible-graphrag.yaml) | Flexible GraphRAG 0.10.0: backend, React / Vue / Angular UIs (its own `app-stack.yaml` with published images), Langflow (`--profile langflow`), and any of the databases it supports from its own menu (`flexible-graphrag/docker/docker-compose.yaml`: by default Neo4j, ArcadeDB, Qdrant, Elasticsearch + Kibana, PostgreSQL); data sources and document state in PostgreSQL, or in Hyland OpenArch trees (`INCREMENTAL_STATE_STORE=openarch`); Hyland OpenArch as the search + vector store with `ENABLE_OPENARCH=true` | runs: 0.10.0 images with the databases menu (Neo4j, ArcadeDB, Qdrant, Elasticsearch, GraphDB) and with Hyland OpenArch as state store and search + vector store: ingest, auto sync, questions with sources |
-| [`compose.kg-spaces-aca.yaml`](compose.kg-spaces-aca.yaml) | KG Spaces ACA: the Alfresco Content App with the KG Spaces extension, built from its GitHub repository at `KG_SPACES_ACA_GIT_REF` (with `@flexible-graphrag/angular-ui` from npm); served by the proxy at `/kg-spaces-aca/` and by its own nginx on port 4280 | runs (v0.10.0) |
-| [`compose.kg-spaces-nuxeo.yaml`](compose.kg-spaces-nuxeo.yaml) | KG Spaces for Nuxeo: a KG Spaces menu in Web UI's document and selection toolbars (Add to KG Spaces; Ask KG Spaces about / View KG Spaces graph of this document / folder), an add-on installed into Nuxeo at start from `nuxeo/addons/`, and the app they open, served by the proxy at `/kg-spaces-nuxeo/` and on port 4290; both built by `scripts/build-kg-spaces-nuxeo.sh` (the app image also by `docker compose ... --build`), from GitHub at `KG_SPACES_NUXEO_GIT_REF` or a checkout at `KG_SPACES_NUXEO_CONTEXT` ([below](#kg-spaces-for-nuxeo)) | runs (v0.10.0) |
+| [`compose.flexible-graphrag.yaml`](compose.flexible-graphrag.yaml) | Flexible GraphRAG 0.11.0: backend, React / Vue / Angular UIs (its own `app-stack.yaml` with published images), Langflow (`--profile langflow`), and any of the databases it supports from its own menu (`flexible-graphrag/docker/docker-compose.yaml`: by default Neo4j, ArcadeDB, Qdrant, Elasticsearch + Kibana, PostgreSQL); data sources and document state in PostgreSQL, or in Hyland OpenArch trees (`INCREMENTAL_STATE_STORE=openarch`); Hyland OpenArch as the search + vector store with `ENABLE_OPENARCH=true` | runs: 0.11.0 images with the databases menu (Neo4j, ArcadeDB, Qdrant, Elasticsearch, GraphDB) and with Hyland OpenArch as state store and search + vector store: ingest, auto sync, questions with sources |
+| [`compose.kg-spaces-aca.yaml`](compose.kg-spaces-aca.yaml) | KG Spaces ACA: the Alfresco Content App with the KG Spaces extension, built from its GitHub repository at `KG_SPACES_ACA_GIT_REF` (with `@flexible-graphrag/angular-ui` from npm); served by the proxy at `/kg-spaces-aca/` and by its own nginx on port 4280 | runs (v0.11.0) |
+| [`compose.kg-spaces-nuxeo.yaml`](compose.kg-spaces-nuxeo.yaml) | KG Spaces for Nuxeo: a KG Spaces menu in Web UI's document and selection toolbars (Add to KG Spaces; Ask KG Spaces about / View KG Spaces graph of this document / folder), an add-on installed into Nuxeo at start from `nuxeo/addons/`, and the app they open, served by the proxy at `/kg-spaces-nuxeo/` and on port 4290; both built by `scripts/build-kg-spaces-nuxeo.sh` (the app image also by `docker compose ... --build`), from GitHub at `KG_SPACES_NUXEO_GIT_REF` or a checkout at `KG_SPACES_NUXEO_CONTEXT` ([below](#kg-spaces-for-nuxeo)) | runs (v0.11.0) |
 | [`compose.nuxeo.yaml`](compose.nuxeo.yaml) | Nuxeo LTS 2025 with the Web UI, stock (documents in PostgreSQL), with OpenSearch 1.3 and Kafka (audit events, for Flexible GraphRAG's auto sync). Image built by [nuxeo-graph-storage](https://github.com/stevereiner/nuxeo-graph-storage)'s Dockerfile, from public source: despite the name, by default it is stock Nuxeo with documents in PostgreSQL (graph storage only with `NUXEO_TEMPLATES=graph-neo4j,...` or `graph-arcadedb,...`) | runs (tested with an image built from a nuxeo-graph-storage checkout) |
 | [`compose.nuxeo.yaml`](compose.nuxeo.yaml), [`compose.openarch.yaml`](compose.openarch.yaml) | Graph storage (not the default: by default Nuxeo keeps its documents in PostgreSQL and OpenArch in MongoDB): Nuxeo's documents in Neo4j or ArcadeDB (nuxeo-graph-storage), OpenArch's repositories in Neo4j or ArcadeDB (openarch-graph-storage), each set up separately with its own database service ([docs/graph-storage.md](docs/graph-storage.md)) | prototype level; optional, not built or run by default |
 
@@ -129,7 +129,7 @@ What `setup.sh` / `setup.bat` ([Quick start](#quick-start)) does, step by step:
 
 ```bash
 sh scripts/set-repositories.sh full                     # or alfresco, nuxeo, none: COMPOSE_PROFILES in .env (above)
-sh scripts/sync-flexible-graphrag.sh v0.10.0             # copies files from the Flexible GraphRAG v0.10.0 release (below)
+sh scripts/sync-flexible-graphrag.sh v0.11.0             # copies files from the Flexible GraphRAG v0.11.0 release (below)
 cp flexible-graphrag.env.sample flexible-graphrag.env   # then set your LLM / embedding keys
 sh scripts/build-openarch.sh                            # OpenArch at OPENARCH_GIT_REF, the image .env pins
 sh scripts/build-kg-spaces-nuxeo.sh                     # KG Spaces for Nuxeo's app image, and its Web UI add-on jar into nuxeo/addons/
@@ -198,10 +198,10 @@ Docker.
 | Flexible GraphRAG backend | http://localhost:8080/fg-api (also `/api`), API docs http://localhost:8080/fg-api/docs; or http://localhost:8000/api |
 | Flexible GraphRAG's databases | as in Flexible GraphRAG: Neo4j http://localhost:7474 (`neo4j` / `password`), ArcadeDB http://localhost:2480 (`root` / `playwithdata`), Qdrant http://localhost:6333/dashboard, Elasticsearch http://localhost:9200, Kibana http://localhost:5601, PostgreSQL `localhost:5433` (`postgres` / `password`), pgAdmin http://localhost:5050, and those you enable |
 | Langflow (`--profile langflow`) | http://localhost:7860 |
-| OpenArch REST API | http://localhost:8088 (Swagger UI: `/swagger-ui/index.html`, `admin` / `password`) |
+| OpenArch REST API | http://localhost:8089 (`OPENARCH_PORT`; Swagger UI: `/swagger-ui/index.html`, `admin` / `password`) |
 | OpenSearch (OpenArch's, shared with Alfresco) | http://localhost:9204; Dashboards http://localhost:5605 with `--profile debug` |
 | Nuxeo's OpenSearch 1.3 | http://localhost:9205 |
-| MongoDB (OpenArch) | `mongodb://localhost:27017` |
+| MongoDB (OpenArch) | `mongodb://localhost:27018` (`OPENARCH_MONGODB_PORT`) |
 | Alfresco PostgreSQL | `localhost:5432` |
 | ActiveMQ (Alfresco) | console http://localhost:8161 (`admin` / `admin`); STOMP 8613, OpenWire 8616 |
 | Kafka (Nuxeo) | `localhost:9092`; Kafka UI http://localhost:8092 with `--profile debug` |
@@ -274,7 +274,7 @@ scripts/build-flexible-graphrag.sh <checkout> --ui --langflow     # --no-backend
 OpenArch keeps its documents in MongoDB, and its full-text and vector indexes in OpenSearch.
 
 - **MongoDB Compass** (free, from MongoDB: [download](https://www.mongodb.com/try/download/compass), or on Windows
-  `winget install MongoDB.Compass.Full`). Connect to `mongodb://localhost:27017/?directConnection=true`
+  `winget install MongoDB.Compass.Full`). Connect to `mongodb://localhost:27018/?directConnection=true`
   (`directConnection=true`: MongoDB runs as a one-member replica set that names itself by its container name, which
   your machine can't reach). Database `openarch`, collection `default`; documents use `sys_*` field names (parents by
   `sys_parentId`; the path itself is only in the search index). For example, filter
@@ -303,7 +303,7 @@ Settings in `.env`:
 |---|---|---|
 | `KG_SPACES_ACA_PATH` | `/kg-spaces-aca` | its path on the proxy |
 | `KG_SPACES_ACA_PORT` | `4280` | its own port |
-| `KG_SPACES_ACA_GIT_REF` | (set in `.env`, `v0.10.0`) | the kg-spaces-aca tag or commit built from GitHub |
+| `KG_SPACES_ACA_GIT_REF` | (set in `.env`, `v0.11.0`) | the kg-spaces-aca tag or commit built from GitHub |
 | `KG_SPACES_ACA_LIB_VERSION` | `latest` | `@flexible-graphrag/angular-ui` version from npm |
 | `KG_SPACES_ACA_CONTEXT` | (unset) | a local checkout to build instead, e.g. `../kg-spaces-aca` |
 | `KG_SPACES_ACA_LIB_SOURCE` | `npm` | `local`: the library from a tarball in the checkout's `docker/lib/` (an unreleased library) |
@@ -335,7 +335,7 @@ Settings in `.env`:
 |---|---|---|
 | `KG_SPACES_NUXEO_PATH` | `/kg-spaces-nuxeo` | the app's path on the proxy |
 | `KG_SPACES_NUXEO_PORT` | `4290` | the app's own port |
-| `KG_SPACES_NUXEO_GIT_REF` | `main` (`.env` sets `v0.10.0`) | the kg-spaces-nuxeo tag, commit or branch built from GitHub |
+| `KG_SPACES_NUXEO_GIT_REF` | `main` (`.env` sets `v0.11.0`) | the kg-spaces-nuxeo tag, commit or branch built from GitHub |
 | `KG_SPACES_NUXEO_URL` | the proxy's `KG_SPACES_NUXEO_PATH` | where Web UI's actions open the app (Nuxeo's `kgspaces.url`), e.g. `http://localhost:4300/kg-spaces-nuxeo/` for one run with `npm start`; recreate Nuxeo after a change |
 | `KG_SPACES_NUXEO_CONTEXT` | (unset) | a local checkout to build instead, e.g. `../kg-spaces-nuxeo` |
 | `KG_SPACES_NUXEO_IMAGE` | `kg-spaces/kg-spaces-nuxeo:<git ref>` | the app image's name |

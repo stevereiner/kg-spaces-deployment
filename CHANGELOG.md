@@ -5,6 +5,31 @@ All notable changes to KG Spaces Deployment are documented in this file. Version
 stack runs, with [KG Spaces ACA](https://github.com/stevereiner/kg-spaces-aca) and
 [KG Spaces for Nuxeo](https://github.com/stevereiner/kg-spaces-nuxeo) at the same version.
 
+## [2026-11-16] — v0.11.0: Flexible GraphRAG 0.11.0 and both KG Spaces apps at 0.11.0
+
+### Changed
+
+- **Version 0.11.0:** Flexible GraphRAG 0.11.0 images (backend, the three UIs, Langflow), and both
+  KG Spaces apps built from their `v0.11.0` tags with `@flexible-graphrag/angular-ui` 0.11.0.
+  - `.env`: `FLEXIBLE_GRAPHRAG_VERSION`, `KG_SPACES_ACA_GIT_REF`, `KG_SPACES_ACA_LIB_VERSION`,
+    `KG_SPACES_NUXEO_GIT_REF`.
+  - `flexible-graphrag/app-stack.override.yaml` and `langflow.override.yaml`: `0.11.0` image
+    defaults.
+  - Flexible GraphRAG 0.11.0 adds:
+    - **Browse...** in the repository and cloud source forms;
+    - results fused from other Flexible GraphRAG backends (`REMOTE_FG_BACKENDS`);
+    - an optional API token (`API_TOKEN`) and `CORS_ORIGINS`;
+    - SQLite as an auto-sync state store;
+    - `FILESYSTEM_SOURCE_ID`, for filesystem and upload documents in the OpenArch tree (a backend
+      in a container has a new host name on every re-create).
+  - The proxy passes the new `/api/browse` through with the rest of `/api/`.
+- **`flexible-graphrag.env.sample`** refreshed from Flexible GraphRAG v0.11.0
+  (`scripts/sync-flexible-graphrag.sh v0.11.0`): `API_TOKEN`, `CORS_ORIGINS`, `REMOTE_FG_*`,
+  `FILESYSTEM_SOURCE_ID`, `INCREMENTAL_STATE_STORE=sqlite` and `SQLITE_INCREMENTAL_PATH`.
+- **OpenArch host ports** in `.env`: `OPENARCH_PORT=8089`, `OPENARCH_MONGODB_PORT=27018` (were 8088 /
+  27017), so Flexible GraphRAG's own OpenArch stack can keep 8088 / 27017 on the same machine. The
+  backend still reaches OpenArch at `http://openarch:8080` inside the stack.
+
 ## [2026-11-10] — v0.10.0: Flexible GraphRAG 0.10.0 and both KG Spaces apps at 0.10.0
 
 ### Changed
